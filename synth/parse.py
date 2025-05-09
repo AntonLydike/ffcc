@@ -5,7 +5,7 @@ from logging import getLogger
 LOGGER = getLogger(__name__)
 
 from synth.ir import IRNode, Kind, MathNode, Type, Value, FloatType, IntType, ConstantNode, VarNode, TunableNode, \
-    BitCastOperator, CastOperator
+    BitCastOperator, CastOperator, TestNode
 
 NAME_TO_KIND = {
     kind.name.lower(): kind for kind in Kind
@@ -54,6 +54,8 @@ def parse_ssa(text: str, baselineno: int = 0) -> IRNode:
                     _parse_val(lineno, line, *arg, values),
                     _parse_type(lineno, line, *dst),
                 )
+            case [(_, 'test'), *args]:
+                op = TestNode(args=tuple(_parse_val(lineno, line, *arg, values) for arg in args if arg[1] != ','), result_types=(IntType(0),))
             case[(pos, kind), lhs, (_, ','), rhs, (_, ':'), typ]:
                     if kind not in NAME_TO_KIND:
                         raise ParseError(lineno, line, f'Unknown math operator {kind}', pos)

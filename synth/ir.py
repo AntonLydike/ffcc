@@ -221,3 +221,9 @@ class CastOperator(IRNode):
     @property
     def type(self) -> Type:
         return self.result.type
+
+
+# testing only
+
+class TestNode(IRNode):
+    pass

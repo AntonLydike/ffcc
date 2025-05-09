@@ -1,0 +1,13 @@
+// RUN: python -m synth --verbose --log-to-out -p simp %s | filecheck %s
+
+%1 = constant 1 : f32
+%2 = constant 2 : f32
+%a = add %1, %2 : f32
+%b = div %a, %2 : f32
+%c = sub %b, %a : f32
+%d = pow %2, %c : f32
+%e = log2 %1 : f32
+%f = negate %d : f32
+
+// CHECK: %0 = constant -0.3535533905932738 : f32
+// CHECK-EMPTY:

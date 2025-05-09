@@ -1,4 +1,5 @@
-from synth.ir import IRNode, Value, MathNode, ConstantNode, VarNode, TunableNode, BitCastOperator, CastOperator
+from synth.ir import IRNode, Value, MathNode, ConstantNode, VarNode, TunableNode, BitCastOperator, CastOperator, \
+    TestNode
 from io import TextIOBase, StringIO
 
 
@@ -59,6 +60,8 @@ def _print_ssa_node(n: IRNode, names: dict[Value, str], out: TextIOBase):
             out.write(f'{res} = bitcast {direction} {args}  to {t}\n')
         case CastOperator(type=t, args=(a,)):
             out.write(f'{res} = cast {args} to {t}\n')
+        case TestNode():
+            out.write(f'{res} = test {args}\n')
         case _:
             print(type(n))
             print(n.args)
@@ -92,6 +95,12 @@ def print_dag(node: IRNode, out: TextIOBase | None = None) -> str | None:
         case CastOperator(argops=(op,), type=t):
             out.write(f'cast<{t}>(')
             print_dag(op, out)
+            out.write(')')
+        case TestNode(argops):
+            out.write(f'test(')
+            for op in argops:
+                print_dag(op, out)
+                out.write(', ')
             out.write(')')
 
     if out_was_none:

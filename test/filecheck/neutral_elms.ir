@@ -1,0 +1,31 @@
+// RUN: python -m synth --verbose --log-to-out -p simp %s | filecheck %s
+
+%zero = constant 0 : f32
+%one = constant 1 : f32
+%x = var x : f32
+
+%0 = add %x, %zero : f32
+// CHECK-DAG: applied neutral_elements: add(x, 0) -> x
+%1 = add %zero, %x : f32
+// CHECK-DAG: applied neutral_elements: add(0, x) -> x
+%2 = sub %x, %zero : f32
+// CHECK-DAG: applied neutral_elements: sub(x, 0) -> x
+
+%3 = mul %x, %one : f32
+// CHECK-DAG: applied neutral_elements: mul(x, 1) -> x
+%4 = mul %one, %x : f32
+// CHECK-DAG: applied neutral_elements: mul(1, x) -> x
+%5 = div %x, %one : f32
+// CHECK-DAG: applied neutral_elements: div(x, 1) -> x
+
+%6 = sub %zero, %x : f32
+// CHECK-DAG: applied neutral_elements: sub(0, x) -> negate(x)
+
+%7 = add %x, %6 : f32
+// CHECK-DAG: applied neutral_elements: add(x, negate(x)) -> sub(x, x)
+// CHECK-DAG: applied symmetry: sub(x, x) -> 0
+
+%r = test %0, %1, %2, %3, %4, %5, %7
+// CHECK: %x = var 'x' : f32
+// CHECK-NEXT: %0 = constant 0 : f32
+// CHECK: test %x, %x, %x, %x, %x, %x, %0
