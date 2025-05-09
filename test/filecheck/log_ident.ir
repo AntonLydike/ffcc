@@ -1,0 +1,79 @@
+// RUN: python -m synth --split-input-file --verbose --log-to-out -p simp %s | filecheck %s
+
+// log2(2^x) -> x
+%x = var x : f32
+%two = constant 2 : f32
+%pow = pow %two, %x : f32
+%log = log2 %pow : f32
+
+// CHECK:      applied log_identities: log2(pow(2, x)) -> x
+// CHECK-NEXT: %x = var 'x' : f32
+
+// CHECK-NOT: log
+// CHECK-NOT: pow
+// CHECK-NOT: constant 2
+
+// CHECK-LABEL: -----
+
+// log_2(a^x) -> x * log_2(a)
+%x = var x : f32
+%a = var a : f32
+
+%pow = pow %a, %x : f32
+%log = log2 %pow : f32
+
+%r = cast %log to i32
+// CHECK:      applied log_identities: log2(pow(a, x)) -> mul(x, log2(a))
+// CHECK:      %x = var 'x' : f32
+// CHECK-NEXT: %a = var 'a' : f32
+// CHECK-NEXT: %0 = log2 %a : f32
+// CHECK-NEXT: %1 = mul %x, %0 : f32
+// CHECK-NEXT: %r = cast %1 to i32
+// CHECK-NOT: pow
+
+// CHECK-LABEL: -----
+
+// log(a/b) -> log(a) - log(b)
+%a = var a : f32
+%b = var b : f32
+%div = div %a, %b : f32
+%log = log2 %div : f32
+
+// CHECK:      applied log_identities: log2(div(a, b)) -> sub(log2(a), log2(b))
+// CHECK-NEXT: %a = var 'a' : f32
+// CHECK-NEXT: %0 = log2 %a : f32
+// CHECK-NEXT: %b = var 'b' : f32
+// CHECK-NEXT: %1 = log2 %b : f32
+// CHECK-NEXT: %2 = sub %0, %1 : f32
+// CHECK-NOT: div
+
+// CHECK-LABEL: -----
+
+// log(a*b) -> log(a) + log(b)
+%a = var a : f32
+%b = var b : f32
+%div = mul %a, %b : f32
+%log = log2 %div : f32
+
+// CHECK:      applied log_identities: log2(mul(a, b)) -> add(log2(a), log2(b))
+// CHECK-NEXT: %a = var 'a' : f32
+// CHECK-NEXT: %0 = log2 %a : f32
+// CHECK-NEXT: %b = var 'b' : f32
+// CHECK-NEXT: %1 = log2 %b : f32
+// CHECK-NEXT: %2 = add %0, %1 : f32
+// CHECK-NOT: mul
+
+// CHECK-LABEL: -----
+
+// exp(a, log_2(x)) -> log_2(a) * x
+
+%a = var a : f32
+%x = var x : f32
+%log = log2 %x : f32
+%pow = pow %a, %log : f32
+
+// CHECK:      applied log_identities: pow(a, log2(x)) -> mul(x, log2(a))
+// CHECK-NEXT: %x = var 'x' : f32
+// CHECK-NEXT: %a = var 'a' : f32
+// CHECK-NEXT: %0 = log2 %a : f32
+// CHECK-NEXT: %1 = mul %x, %0 : f32

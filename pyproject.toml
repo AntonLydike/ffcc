@@ -1,0 +1,20 @@
+[tool.poetry]
+name = "synth"
+version = "0.1.0"
+description = "Generation of faster float math"
+authors = ["Anton Lydike <me@antonlydike.de>"]
+license = "AGPL-3.0-or-later"
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.12"
+
+
+[tool.poetry.group.dev.dependencies]
+filecheck = "^1.0.2"
+lit = "^18.1.8"
+black = "^25.1.0"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

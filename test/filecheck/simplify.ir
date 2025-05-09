@@ -1,0 +1,62 @@
+// RUN: python -m synth --split-input-file --verbose --log-to-out -p simp %s | filecheck %s
+
+// simple example meant as a catch-all:
+
+// this is equivalent to x + (x ^ -0.5)
+// log2((1 + 1) ^ x) + 1 / (x ^ 0.5)
+
+%x = var x : f32
+%one = constant 1 : f32
+%half = constant 0.5 : f32
+%two = add %one, %one : f32
+// CHECK-DAG: applied constant_fold: add(1, 1) -> 2
+
+%e = pow %x, %half : f32
+%d = div %one, %e : f32
+// CHECK-DAG: applied simplify_div_exp: div(1, pow(x, 0.5)) -> mul(1, pow(x, negate(0.5)))
+// CHECK-DAG: applied neutral_elements: mul(1, pow(x, negate(0.5))) -> pow(x, negate(0.5))
+// CHECK-DAG: applied constant_fold: negate(0.5) -> -0.5
+
+%t = pow %two, %x : f32
+%l = log2 %t : f32
+// CHECK-DAG: :applied log_identities: log2(pow(2, x)) -> x
+
+%res = add %l, %d : f32
+
+// CHECK:      %x = var 'x' : f32
+// CHECK-NEXT: %0 = constant -0.5 : f32
+// CHECK-NEXT: %1 = pow %x, %0 : f32
+// CHECK-NEXT: %res = add %x, %1 : f32
+
+
+// CHECK-LABEL: -----
+
+// check symmetry rewrites:
+//   . x + x -> 2 * x
+//   . x - x -> 0
+//   . x * x -> x ^ 2
+//   . x / x -> 1
+//   . -(-x) -> x
+
+%x = var x : f32
+
+%0 = add %x, %x : f32
+// CHECK-DAG: applied symmetry: add(x, x) -> mul(2, x)
+
+%1 = sub %x, %x : f32
+// CHECK-DAG: applied symmetry: sub(x, x) -> 0
+
+%2 = mul %x, %x : f32
+// CHECK-DAG: applied symmetry: mul(x, x) -> pow(x, 2)
+
+%3 = div %x, %x : f32
+// CHECK-DAG: applied symmetry: div(x, x) -> 1
+
+%4 = negate %x : f32
+%5 = negate %4 : f32
+// CHECK-DAG: applied symmetry: negate(negate(x)) -> x
+
+%r = add %1, %2 : f32
+%r2 = add %r, %3 : f32
+%r3 = sub %r2, %5 : f32
+%r3 = sub %r3, %0 : f32
