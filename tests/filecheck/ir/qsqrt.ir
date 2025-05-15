@@ -1,0 +1,25 @@
+// RUN: python -m ffcc %s -p simp,approx,cse | filecheck %s
+
+%x = var x : f32
+%half = constant 0.5 : f32
+%one = constant 1 : f32
+
+%pow = pow %x, %half : f32
+%div = div %one, %pow : f32
+
+// CHECK:      %0 = constant 8388608 : f32
+// CHECK-NEXT: %1 = constant 127 : f32
+// CHECK-NEXT: %sigma = tunable 'sigma' = 0.45066 : f32
+// CHECK-NEXT: %2 = sub %1, %sigma : f32
+// CHECK-NEXT: %3 = mul %0, %2 : f32
+// CHECK-NEXT: %4 = constant -0.5 : f32
+// CHECK-NEXT: %x = var 'x' : f32
+// CHECK-NEXT: %5 = bitcast f2i %x  to i32
+// CHECK-NEXT: %6 = div %5, %0 : f32
+// CHECK-NEXT: %7 = add %6, %1 : f32
+// CHECK-NEXT: %sigma1 = tunable 'sigma' = 0.45066 : f32
+// CHECK-NEXT: %8 = add %7, %sigma1 : f32
+// CHECK-NEXT: %9 = mul %0, %8 : f32
+// CHECK-NEXT: %10 = mul %4, %9 : f32
+// CHECK-NEXT: %11 = add %3, %10 : i32
+// CHECK-NEXT: %12 = bitcast i2f %11  to f32

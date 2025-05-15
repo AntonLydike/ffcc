@@ -1,4 +1,4 @@
-from synth.ir import IRNode, Value, MathNode, ConstantNode, VarNode, TunableNode, BitCastOperator, CastOperator, \
+from ffcc.ir import IRNode, Value, MathNode, ConstantNode, VarNode, TunableNode, BitCastOperator, CastOperator, \
     TestNode
 from io import TextIOBase, StringIO
 
@@ -57,7 +57,7 @@ def _print_ssa_node(n: IRNode, names: dict[Value, str], out: TextIOBase):
         case TunableNode(name=n, hint=h, type=t):
             out.write(f'{res} = tunable {repr(n)} = {h} : {t}\n')
         case BitCastOperator(direction, type=t, args=(a,)):
-            out.write(f'{res} = bitcast {direction} {args}  to {t}\n')
+            out.write(f'{res} = bitcast {direction} {args} to {t}\n')
         case CastOperator(type=t, args=(a,)):
             out.write(f'{res} = cast {args} to {t}\n')
         case TestNode():

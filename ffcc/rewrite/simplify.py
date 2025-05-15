@@ -1,7 +1,26 @@
-from synth.ir import IRNode, MathNode, Kind, ConstantNode, FloatType, IntType
+from ffcc.ir import IRNode, MathNode, Kind, ConstantNode, FloatType, IntType, CastOperator, BitCastOperator
 import math
+import struct
+import ctypes
 
-from synth.rewrite.rewriter import Rewriter
+from ffcc.rewrite.rewriter import Rewriter
+
+# casting operators
+def i2f(i: int) -> float:
+    return struct.unpack('f', struct.pack('i', ctypes.c_int32(i).value))[0]
+
+
+def f2i(f: float) -> int:
+    return struct.unpack('i', struct.pack('f', f))[0]
+
+
+# casting operators
+def i2f_64(i: int) -> float:
+    return struct.unpack('d', struct.pack('q', ctypes.c_int32(i).value))[0]
+
+
+def f2i_64(f: float) -> int:
+    return struct.unpack('q', struct.pack('d', f))[0]
 
 
 def simplify_div_exp(node: IRNode) -> IRNode | None:
@@ -32,6 +51,21 @@ def simplify_div_exp(node: IRNode) -> IRNode | None:
             )
 
 
+def div_by_constant(node: IRNode) -> IRNode | None:
+    match node:
+        case MathNode(
+            kind=Kind.Div,
+            argops=(a, ConstantNode(value=v, type=ct)),
+            type=t
+        ):
+            return MathNode(
+                ConstantNode(value=1/v, type=ct),
+                a,
+                kind=Kind.Mul,
+                res_type=t
+            )
+
+
 def constant_fold(node: IRNode) -> IRNode | None:
     match node:
         case MathNode(
@@ -58,6 +92,23 @@ def constant_fold(node: IRNode) -> IRNode | None:
                     return ConstantNode(-vals[0], res_t)
                 case Kind.Log2:
                     return ConstantNode(math.log2(vals[0]), res_t)
+        case CastOperator(argops=(ConstantNode(value=v)), type=t):
+            if isinstance(t, IntType):
+                # FIXME: properly truncate bits
+                return ConstantNode(int(v), t)
+            elif isinstance(t, FloatType):
+                return ConstantNode(float(v), t)
+        case BitCastOperator(argops=(ConstantNode(value=val)), direction=d, type=t) if t.width == 32:
+            if d == 'f2i':
+                return ConstantNode(f2i(float(val)), t)
+            elif d == 'i2f':
+                return ConstantNode(i2f(int(val)), t)
+        case BitCastOperator(argops=(ConstantNode(value=val)), direction=d, type=t) if t.width == 64:
+            if d == 'f2i':
+                return ConstantNode(f2i_64(float(val)), t)
+            elif d == 'i2f':
+                return ConstantNode(i2f_64(int(val)), t)
+
 
 def neutral_elements(node: IRNode) -> IRNode | None:
     match node:
@@ -152,17 +203,18 @@ def symmetry(node: IRNode) -> IRNode | None:
     convert:
         . x + x -> 2 * x
         . x - x -> 0
-        . x * x -> x ^ 2
         . x / x -> 1
         . -(-x) -> x
+    // skip
+        . x * x -> x ^ 2
     """
     i32 = IntType(32)
     match node:
         case MathNode(kind, argops=(x, y)) if x is y:
             match kind:
-                # x * x -> x ^ 2
-                case Kind.Mul:
-                    return MathNode(x, ConstantNode(2, i32), kind=Kind.Pow, res_type=x.type)
+                ## x * x -> x ^ 2
+                #case Kind.Mul:
+                #    return MathNode(x, ConstantNode(2, i32), kind=Kind.Pow, res_type=x.type)
                 # x + x -> x * 2
                 case Kind.Add:
                     return MathNode(ConstantNode(2, i32), x, kind=Kind.Mul, res_type=x.type)
@@ -176,11 +228,41 @@ def symmetry(node: IRNode) -> IRNode | None:
         case MathNode(kind=Kind.Negate, argops=(MathNode(kind=Kind.Negate, argops=(orig,)),)):
             return orig
 
+def constant_shoving(node: IRNode) -> IRNode | None:
+    """
+    shove constants to the left
+    """
+    match node:
+        case MathNode(
+            kind=k,
+            argops=(a, ConstantNode() as c)
+        ) if k in (Kind.Mul, Kind.Add) and not isinstance(a, ConstantNode):
+            return MathNode(c, a, kind=k, res_type=node.type)
+        # (c1 + (c2 + x)) -> (c1 + c2) + x
+        case MathNode(
+            kind=k1,
+            argops=(ConstantNode() as c1, MathNode(
+                kind=k2,
+                argops=(ConstantNode() as c2, x),
+                type=t2
+            )),
+            type=t
+        ) if k1 == k2 and k1 in (Kind.Mul, Kind.Add) and t2 == t and not isinstance(x, ConstantNode):
+            return MathNode(
+                MathNode(
+                    c1, c2, kind=k1, res_type=t
+                ),
+                x,
+                kind=k1,
+                res_type=t
+            )
 
 simp = Rewriter((
     simplify_div_exp,
     constant_fold,
     neutral_elements,
     log_identities,
+    div_by_constant,
     symmetry,
+    constant_shoving,
 ))

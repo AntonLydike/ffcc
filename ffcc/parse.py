@@ -4,7 +4,7 @@ from logging import getLogger
 
 LOGGER = getLogger(__name__)
 
-from synth.ir import IRNode, Kind, MathNode, Type, Value, FloatType, IntType, ConstantNode, VarNode, TunableNode, \
+from ffcc.ir import IRNode, Kind, MathNode, Type, Value, FloatType, IntType, ConstantNode, VarNode, TunableNode, \
     BitCastOperator, CastOperator, TestNode
 
 NAME_TO_KIND = {

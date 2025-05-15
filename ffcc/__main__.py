@@ -1,6 +1,6 @@
 import sys
 
-from synth.main import Main
+from ffcc.main import Main
 
 
 if __name__ == '__main__':

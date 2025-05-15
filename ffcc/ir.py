@@ -1,6 +1,8 @@
 from __future__ import annotations
+
+from collections.abc import Iterable
 from enum import Enum, auto
-from typing import Literal
+from typing import Literal, Callable
 
 
 class Kind(Enum):
@@ -14,29 +16,23 @@ class Kind(Enum):
     Floor = auto()
 
 class Type:
-    pass
+    __match_args__ = ('width',)
+
+    width: int
+
+    def __init__(self, width: int):
+        self.width = width
+
+    def __eq__(self, other):
+        return type(self) is type(other) and self.width == other.width
 
 class IntType(Type):
-    __match_args__ = ('width',)
-
-    width: int
-    def __init__(self, width: int):
-        self.width = width
     def __str__(self) -> str:
         return f'i{self.width}'
-    def __eq__(self, other):
-        return type(self) is type(other) and self.width == other.width
 
 class FloatType(Type):
-    __match_args__ = ('width',)
-
-    width: int
-    def __init__(self, width: int):
-        self.width = width
     def __str__(self) -> str:
         return f'f{self.width}'
-    def __eq__(self, other):
-        return type(self) is type(other) and self.width == other.width
 
 class Value:
     __match_args__ = ('type', 'name')
@@ -77,8 +73,7 @@ class Value:
 
 
 class IRNode:
-    __match_args__ = ('argops', 'results')
-    val_attrs = ()
+    __match_args__ = ('argops', 'results', 'type')
 
     args: tuple[Value, ...]
     results: tuple[Value, ...]
@@ -112,9 +107,23 @@ class IRNode:
     def argops(self) -> tuple[IRNode, ...]:
         return tuple(val.owner for val in self.args)
 
+    @property
+    def type(self) -> Type:
+        return self.result.type
+
+    def walk(self, reverse:bool = False) -> Iterable[IRNode]:
+        if not reverse:
+            yield self
+
+        for op in self.argops:
+            yield from op.walk(reverse)
+
+        if reverse:
+            yield self
+
 
 class MathNode(IRNode):
-    __match_args__ = ('kind', 'argops', 'results', 'result')
+    __match_args__ = ('kind', 'argops', 'results', 'result', 'type')
     val_attrs = ('kind',)
 
     kind: Kind
@@ -126,12 +135,11 @@ class MathNode(IRNode):
         )
         self.kind = kind
 
-    @property
-    def type(self) -> Type:
-        return self.result.type
+    def __str__(self):
+        return f"{self.__class__.__name__}<{self.kind.name}>(args={self.args}, results={self.results})"
 
 class ConstantNode(IRNode):
-    __match_args__ = ('value', 'results')
+    __match_args__ = ('value', 'results', 'type')
     val_attrs = ('value','type')
 
     value: int | float
@@ -143,13 +151,12 @@ class ConstantNode(IRNode):
         )
         self.value = value
 
-    @property
-    def type(self) -> Type:
-        return self.result.type
+    def __str__(self):
+        return f"{self.__class__.__name__}(value={self.value}, results={self.results})"
 
 class VarNode(IRNode):
-    __match_args__ = ('name', 'results')
-    val_attrs = ('name','type')
+    __match_args__ = ('name', 'results', 'result', 'type')
+    val_attrs = ('name', 'type')
 
     name: str
 
@@ -164,11 +171,13 @@ class VarNode(IRNode):
     def type(self) -> Type:
         return self.result.type
 
+    def __str__(self):
+        return f"{self.__class__.__name__}(name={repr(self.name)}, results={self.results})"
+
 # Casting and Approximation Logic
 
 class TunableNode(IRNode):
-    __match_args__ = ('name', 'results')
-    val_attrs = ('name', 'hint', 'type')
+    __match_args__ = ('name', 'results', 'type', 'hint')
 
     name: str
     hint: float | int
@@ -193,7 +202,7 @@ class BitCastOperator(IRNode):
     direction: Literal['f2i', 'i2f']
 
     def __init__(self, value: Value | IRNode, direction: Literal['f2i', 'i2f']):
-        if not isinstance(value, IRNode):
+        if not isinstance(value, Value):
             value = value.result
         res_t = FloatType(value.type.width) if direction == 'i2f' else IntType(value.type.width)
         super().__init__(
@@ -201,10 +210,6 @@ class BitCastOperator(IRNode):
             args=(value,)
         )
         self.direction = direction
-
-    @property
-    def type(self) -> Type:
-        return self.result.type
 
 class CastOperator(IRNode):
     __match_args__ = ('results', 'args', 'type')
@@ -217,11 +222,6 @@ class CastOperator(IRNode):
             result_types=(type,),
             args=(value,)
         )
-
-    @property
-    def type(self) -> Type:
-        return self.result.type
-
 
 # testing only
 

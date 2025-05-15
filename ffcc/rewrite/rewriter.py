@@ -1,8 +1,8 @@
 import sys
 from typing import Callable
 
-from synth.ir import IRNode
-from synth.printer import print_dag
+from ffcc.ir import IRNode
+from ffcc.printer import print_dag
 
 from logging import getLogger
 

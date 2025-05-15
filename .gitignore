@@ -1,4 +1,6 @@
 __pycache__
 .lit_test_times.txt
-/test/filecheck/Output
+/test/**/Output/
 .idea
+.venv
+*.egg-info/
