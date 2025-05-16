@@ -1,11 +1,11 @@
 # RUN: python %s | filecheck %s
 import numpy as np
 from ffcc.ir import FloatType, MathNode, ConstantNode, Kind, VarNode, TunableNode
-from ffcc.jit import instantiate_node_as_jit
+from ffcc.jit import Program
 
 f32 = FloatType(32)
 
-program = MathNode(
+node = MathNode(
     VarNode('x', f32),
     MathNode(
         ConstantNode(3.14159, f32),
@@ -17,22 +17,21 @@ program = MathNode(
     res_type=f32
 )
 
-lib = instantiate_node_as_jit(program)
+p = Program(node)
 
 domain = np.linspace(1, 2, 100, dtype=np.float32)
 sigmas = np.array([1], dtype=np.float32)
 
 # individual call
-print(lib.my_func.argtypes)
+print(p.dll.my_func.argtypes)
 # CHECK: [<class 'ctypes.c_float'>, <class 'ctypes.c_float'>]
 print(
-    'my_func(0, 1) = {}'.format(lib.my_func(0, 1))
+    'my_func(0, 1) = {}'.format(p(0, 1))
 )
 # CHECK-NEXT: my_func(0, 1) = 3.141590118408203
 
 # evaluate on [-1, 1]
-results = np.zeros_like(domain)
-lib.eval_on_domain(results, domain, 100, 1)
+results = p.eval_on_domain(domain, (1,))
 # CHECK-NEXT: eval_on_domain [1, 2] -> [4.14159   4.151691  4.1617923 4.171893  4.1819944 4.1920953 4.202196
 # CHECK-NEXT:  4.2122974 4.2223983 4.232499  4.2426004 4.2527013 4.262802  4.2729034
 # CHECK-NEXT:  4.2830043 4.293105  4.3032064 4.3133073 4.323408  4.3335094 4.3436103
@@ -55,6 +54,6 @@ print('eval_on_domain [1, 2] -> {}'.format(results))
 # relative error:
 actual_results = np.ones_like(domain)*2
 print(
-    'max_rel_err [1, 2] = {}'.format(lib.max_relative_error(actual_results, domain, 100, 1))
+    'max_rel_err [1, 2] = {}'.format(p.max_relative_error(actual_results, domain, (0.1, )))
 )
-# CHECK-NEXT: max_rel_err [1, 2] = 1.5707950592041016
+# CHECK-NEXT: max_rel_err [1, 2] = 0.3429204821586609

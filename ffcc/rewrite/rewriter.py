@@ -12,7 +12,7 @@ LOGGER = getLogger(__name__)
 class Rewriter:
     patterns: tuple[Callable[[IRNode], IRNode | None], ...]
 
-    def __init__(self, patterns: tuple[Callable[[IRNode], IRNode | None],...]):
+    def __init__(self, patterns: tuple[Callable[[IRNode], IRNode | None], ...]):
         self.patterns = patterns
 
     def __call__(self, node: IRNode) -> IRNode:
@@ -31,7 +31,9 @@ class Rewriter:
                 new_node = pattern(curr_node)
                 if new_node is None or new_node is curr_node:
                     continue
-                LOGGER.info(f"applied {pattern.__name__}: {print_dag(curr_node)} -> {print_dag(new_node)}")
+                LOGGER.info(
+                    f"applied {pattern.__name__}: {print_dag(curr_node)} -> {print_dag(new_node)}"
+                )
                 for old, new in zip(curr_node.results, new_node.results, strict=True):
                     # add modified nodes to worklist
                     for use in old.uses:

@@ -1,10 +1,23 @@
 from __future__ import annotations
 
+import sys
 from io import TextIOBase
 import ctypes
 
-from ffcc.ir import IRNode, VarNode, TunableNode, Value, Type, ConstantNode, FloatType, IntType, MathNode, Kind, \
-    BitCastOperator, CastOperator
+from ffcc.ir import (
+    IRNode,
+    VarNode,
+    TunableNode,
+    Value,
+    Type,
+    ConstantNode,
+    FloatType,
+    IntType,
+    MathNode,
+    Kind,
+    BitCastOperator,
+    CastOperator,
+)
 
 _FLOAT_WIDTH_TO_TYPE_NAME = {
     16: "half",
@@ -12,6 +25,8 @@ _FLOAT_WIDTH_TO_TYPE_NAME = {
     64: "double",
     128: "fp128",
 }
+
+
 def _t(typ: Type) -> str:
     """
     Type to llvm type string
@@ -19,7 +34,7 @@ def _t(typ: Type) -> str:
 
     match typ:
         case IntType(width=w):
-            return f'i{w}'
+            return f"i{w}"
         case FloatType(width=w) if w in _FLOAT_WIDTH_TO_TYPE_NAME:
             return _FLOAT_WIDTH_TO_TYPE_NAME[w]
         case _:
@@ -29,10 +44,10 @@ def _t(typ: Type) -> str:
 def type_to_llvm_type(t: Type) -> str:
     return _t(t)
 
+
 def _args(*arg: Value, names: dict[Value, str]) -> str:
-    return ", ".join(
-        f'{_t(v.type)} {_name(v, names)}' for v in arg
-    )
+    return ", ".join(f"{_t(v.type)} {_name(v, names)}" for v in arg)
+
 
 def float_with_bitwidth(value: float, bits: int) -> str:
     if bits == 32:
@@ -47,11 +62,11 @@ def _name(val: Value, names: dict[Value, str]) -> str:
         return names[val]
     # if val.name has no hint, starts with a number,
     elif val.name is None or val.name[0].isdigit():
-        name = f'%{len(names)}'
+        name = f"%{len(names)}"
         names[val] = name
         return name
 
-    base_name = f'%{val.name}'
+    base_name = f"%{val.name}"
     name = base_name
     used_names = set(names.values())
     i = 1
@@ -61,10 +76,14 @@ def _name(val: Value, names: dict[Value, str]) -> str:
     names[val] = name
     return name
 
+
 def _args_key(arg: Value) -> tuple[int, str]:
     return 0 if isinstance(arg.owner, VarNode) else 1, arg.name
 
-def print_llvm_func_for(node: IRNode, sym_name: str, buff: TextIOBase) -> list[Value]:
+
+def print_llvm_func_for(
+    node: IRNode, sym_name: str = "my_func", file: TextIOBase = sys.stdout
+) -> tuple[list[Value], list[Value]]:
     inputs: list[Value] = []
 
     names: dict[Value, str] = {}
@@ -80,13 +99,23 @@ def print_llvm_func_for(node: IRNode, sym_name: str, buff: TextIOBase) -> list[V
             case ConstantNode(result=r, value=v, type=t) if isinstance(t, IntType):
                 names[r] = str(int(v))
 
-    # print function heading
-    print(f"define {_t(node.type)} @{sym_name}({_args(*sorted(inputs, key=_args_key), names=names)}) {{", file=buff)
+    inputs = sorted(inputs, key=_args_key)
 
-    def ins(result: Value | None = None, *text: str | Value | Type | int | float, indent: str = "  ", res_t: Type | None = None):
+    # print function heading
+    print(
+        f"define {_t(node.type)} @{sym_name}({_args(*inputs, names=names)}) {{",
+        file=file,
+    )
+
+    def ins(
+        result: Value | None = None,
+        *text: str | Value | Type | int | float,
+        indent: str = "  ",
+        res_t: Type | None = None,
+    ):
         parts = []
         if result is not None:
-            parts = [_name(result, names), '=']
+            parts = [_name(result, names), "="]
         for part in text:
             if isinstance(part, Value):
                 parts.append(_name(part, names))
@@ -96,7 +125,7 @@ def print_llvm_func_for(node: IRNode, sym_name: str, buff: TextIOBase) -> list[V
                 parts.append(_t(part))
             else:
                 parts.append(str(part))
-        print(f'{indent}{" ".join(parts)}', file=buff)
+        print(f'{indent}{" ".join(parts)}', file=file)
         # cast result to type
         if res_t is not None and result is not None:
             casted_t = _ensure_type(result, result.type, val_t=res_t)
@@ -109,43 +138,49 @@ def print_llvm_func_for(node: IRNode, sym_name: str, buff: TextIOBase) -> list[V
         if val_t == ty:
             return val
         if val_t.width != ty.width:
-            raise ValueError('Cannot handle diverging bitwidths yet')
+            raise ValueError("Cannot handle diverging bitwidths yet")
         if isinstance(ty, FloatType):
-            res = Value(ty, val.owner, 'cast')
-            ins(res, 'sitofp', val_t, val, 'to', ty)
+            res = Value(ty, val.owner, "cast")
+            ins(res, "sitofp", val_t, val, "to", ty)
             return res
         elif isinstance(ty, IntType):
-            res = Value(ty, val.owner, 'cast')
-            ins(res, 'fptosi', val_t, val, 'to', ty)
+            res = Value(ty, val.owner, "cast")
+            ins(res, "fptosi", val_t, val, "to", ty)
             return res
-        raise ValueError('Unknown type', ty)
-
+        raise ValueError("Unknown type", ty)
 
     for op in node.walk(reverse=True):
         if op.result in names:
             continue
         match op:
             case MathNode(kind=Kind.Negate, result=r, args=(a,), type=IntType()):
-                ins(r, 'sub', a.type, '0,', a, res_t=a.type)
+                ins(r, "sub", a.type, "0,", a, res_t=a.type)
             case MathNode(kind=Kind.Negate, result=r, args=(a,), type=FloatType()):
-                ins(r, 'fneg', a.type, a, res_t=a.type)
-            case MathNode(kind=k, result=r, args=(a, b)) if k in (Kind.Mul, Kind.Add, Kind.Sub, Kind.Div):
+                ins(r, "fneg", a.type, a, res_t=a.type)
+            case MathNode(kind=k, result=r, args=(a, b)) if k in (
+                Kind.Mul,
+                Kind.Add,
+                Kind.Sub,
+                Kind.Div,
+                Kind.Shl,
+                Kind.Ashr,
+            ):
                 b = _ensure_type(b, a.type)
                 op = k.name.lower()
                 if isinstance(a.type, FloatType):
-                    op = f'f{op}'
+                    op = f"f{op}"
                 elif k == Kind.Div:
                     # int div shoudl be sdiv (signed division)
-                    op = f's{op}'
-                ins(r, op, a.type, a, ',', b, res_t=a.type)
+                    op = f"s{op}"
+                ins(r, op, a.type, a, ",", b, res_t=a.type)
             case MathNode(kind=k, result=r):
-                ins(r, 'unknown op', k.name.lower(), res_t=r.type)
+                ins(r, "unknown op", k.name.lower(), res_t=r.type)
             case BitCastOperator(direction=d, args=(a,), result=r, type=ty):
-                if d == 'f2i':
+                if d == "f2i":
                     a = _ensure_type(a, FloatType(a.type.width))
                 else:
                     a = _ensure_type(a, IntType(a.type.width))
-                ins(r, 'bitcast', a.type, a, 'to', ty)
+                ins(r, "bitcast", a.type, a, "to", ty)
             case CastOperator(args=(a,), result=r, type=ty):
                 a = _ensure_type(a, ty)
                 # alias names r and a
@@ -153,7 +188,7 @@ def print_llvm_func_for(node: IRNode, sym_name: str, buff: TextIOBase) -> list[V
             case TunableNode() | VarNode() | ConstantNode():
                 print("This shouldn't happen!")
 
-    ins(None, 'ret', node.type, node.result)
-    print('}', file=buff)
+    ins(None, "ret", node.type, node.result)
+    print("}", file=file)
 
     return inputs

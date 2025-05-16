@@ -14,35 +14,41 @@ from ffcc.parse import parse_ssa
 from ffcc.print_llvm import print_llvm_func_for
 from ffcc.printer import print_dag, print_ssa
 from ffcc.rewrite.instantiate import instantiate_pass
+from ffcc.rewrite.optimize_types import types
 from ffcc.rewrite.simplify import simp
 from ffcc.rewrite.approximate import approx
 
 passes = {
-    'cse': cse,
-    'simp': simp,
-    'approx': approx,
-    'instantiate': instantiate_pass,
+    "cse": cse,
+    "simp": simp,
+    "approx": approx,
+    "types": types,
+    "instantiate": instantiate_pass,
 }
 
-def open_source(dash:TextIO) -> Callable[[str], TextIO]:
+
+def open_source(dash: TextIO) -> Callable[[str], TextIO]:
     def parse(src: str):
-        if src == '-':
+        if src == "-":
             return dash
-        return open(src, 'r')
+        return open(src, "r")
+
     return parse
+
 
 def get_passes(pass_args: str) -> list[Callable[[str], IRNode | None]]:
     pipeline = []
-    for arg in pass_args.split(','):
+    for arg in pass_args.split(","):
         if arg not in passes:
             raise ValueError("Unknown pass", arg)
         pipeline.append(passes[arg])
     return pipeline
 
+
 formatter = {
-    'dag': print_dag,
-    'ssa': print_ssa,
-    'llvm': lambda node, buf: print_llvm_func_for(node, 'my_func', buf)
+    "dag": print_dag,
+    "ssa": print_ssa,
+    "llvm": lambda node, buf: print_llvm_func_for(node, "my_func", buf),
 }
 
 
@@ -57,28 +63,55 @@ class Main:
 
     passes: list[Callable[[IRNode], IRNode]]
 
-    split_on: str = '-----'
+    split_on: str = "-----"
 
     verbose: bool = False
     log_to_out: bool = False
 
-    plot: bool = False
-    range: tuple[float, float] = (-2, 2)
-
     @classmethod
     def from_cli(cls, cli: list[str]) -> Main:
         parser = ArgumentParser(prog="ffcc")
-        parser.add_argument('input', help="source file, - for stdin", default=sys.stdin, type=open_source(sys.stdin), nargs='?')
-        parser.add_argument("-o", '--output', help="dest file, - for stdout", default=sys.stdout, type=open_source(sys.stdout))
-        parser.add_argument('-p', '--passes', help="passes to apply", default=[], type=get_passes)
-        parser.add_argument('-f', '--format', help="output format", default='ssa', choices=formatter)
-        parser.add_argument('--split-input-file', help="split input files on -----", action='store_true', default=False)
-        parser.add_argument('--split-on', type=str, help="boundary to split on (default -----)", default='-----')
-        parser.add_argument('--verbose', action='store_true', default=False, help="Print verbose output")
-        parser.add_argument('--log-to-out', action='store_true', default=False, help="Log to output stream")
-
-        parser.add_argument('--plot', action='store_true', default=False, help="Plot graph")
-        parser.add_argument('--range', default=(-2, 2), help="input range for plot", type=ast.literal_eval)
+        parser.add_argument(
+            "input",
+            help="source file, - for stdin",
+            default=sys.stdin,
+            type=open_source(sys.stdin),
+            nargs="?",
+        )
+        parser.add_argument(
+            "-o",
+            "--output",
+            help="dest file, - for stdout",
+            default=sys.stdout,
+            type=open_source(sys.stdout),
+        )
+        parser.add_argument(
+            "-p", "--passes", help="passes to apply", default=[], type=get_passes
+        )
+        parser.add_argument(
+            "-f", "--format", help="output format", default="ssa", choices=formatter
+        )
+        parser.add_argument(
+            "--split-input-file",
+            help="split input files on -----",
+            action="store_true",
+            default=False,
+        )
+        parser.add_argument(
+            "--split-on",
+            type=str,
+            help="boundary to split on (default -----)",
+            default="-----",
+        )
+        parser.add_argument(
+            "--verbose", action="store_true", default=False, help="Print verbose output"
+        )
+        parser.add_argument(
+            "--log-to-out",
+            action="store_true",
+            default=False,
+            help="Log to output stream",
+        )
 
         ns = parser.parse_args(args=cli[1:])
         return Main(
@@ -90,17 +123,14 @@ class Main:
             split_on=ns.split_on,
             verbose=ns.verbose,
             log_to_out=ns.log_to_out,
-            plot=ns.plot,
-            range=ns.range,
         )
-
 
     def apply(self):
         log_conf = {}
         if self.verbose:
-            log_conf['level']=logging.INFO
+            log_conf["level"] = logging.INFO
         if self.log_to_out:
-            log_conf['stream'] = self.out
+            log_conf["stream"] = self.out
         if log_conf:
             logging.basicConfig(**log_conf)
 
@@ -111,7 +141,7 @@ class Main:
             lineno = 1
             for part in self.input.read().split(self.split_on):
                 parts.append((part, lineno))
-                lineno += part.count('\n')
+                lineno += part.count("\n")
         else:
             parts = [(self.input.read(), 1)]
 
@@ -121,7 +151,7 @@ class Main:
                 ir = p(ir)
             self.out_formatter(ir, self.out)
             if i < len(parts) - 1:
-                self.out.write(f'\n// {self.split_on}\n\n')
+                self.out.write(f"\n// {self.split_on}\n\n")
 
     def __call__(self):
         self.apply()

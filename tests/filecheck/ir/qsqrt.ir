@@ -1,4 +1,5 @@
-// RUN: python -m ffcc %s -p simp,approx,cse | filecheck %s
+// RUN: python -m ffcc %s -p simp,approx,cse,simp,types | filecheck %s
+// RUN: python -m ffcc %s -p simp,approx,cse,simp,types -f llvm | opt -S | filecheck --check-prefix=LLVM %s
 
 %x = var x : f32
 %half = constant 0.5 : f32
@@ -7,19 +8,21 @@
 %pow = pow %x, %half : f32
 %div = div %one, %pow : f32
 
-// CHECK:      %0 = constant 8388608 : f32
-// CHECK-NEXT: %1 = constant 127 : f32
-// CHECK-NEXT: %sigma = tunable 'sigma' = 0.45066 : f32
-// CHECK-NEXT: %2 = sub %1, %sigma : f32
-// CHECK-NEXT: %3 = mul %0, %2 : f32
-// CHECK-NEXT: %4 = constant -0.5 : f32
+// CHECK:      %sigma = tunable 'sigma' = 527005993 : i32
 // CHECK-NEXT: %x = var 'x' : f32
-// CHECK-NEXT: %5 = bitcast f2i %x  to i32
-// CHECK-NEXT: %6 = div %5, %0 : f32
-// CHECK-NEXT: %7 = add %6, %1 : f32
-// CHECK-NEXT: %sigma1 = tunable 'sigma' = 0.45066 : f32
-// CHECK-NEXT: %8 = add %7, %sigma1 : f32
-// CHECK-NEXT: %9 = mul %0, %8 : f32
-// CHECK-NEXT: %10 = mul %4, %9 : f32
-// CHECK-NEXT: %11 = add %3, %10 : i32
-// CHECK-NEXT: %12 = bitcast i2f %11  to f32
+// CHECK-NEXT: %0 = bitcast f2i %x to i32
+// CHECK-NEXT: %1 = constant 1 : i32
+// CHECK-NEXT: %2 = ashr %0, %1 : i32
+// CHECK-NEXT: %3 = negate %2 : i32
+// CHECK-NEXT: %4 = add %sigma, %3 : i32
+// CHECK-NEXT: %5 = bitcast i2f %4 to f32
+
+
+// LLVM:      define float @my_func(float %x, i32 %sigma) {
+// LLVM-NEXT:   %1 = bitcast float %x to i32
+// LLVM-NEXT:   %2 = ashr i32 %1, 1
+// LLVM-NEXT:   %3 = sub i32 0, %2
+// LLVM-NEXT:   %4 = add i32 %sigma, %3
+// LLVM-NEXT:   %5 = bitcast i32 %4 to float
+// LLVM-NEXT:   ret float %5
+// LLVM-NEXT: }

@@ -1,9 +1,20 @@
-from ffcc.ir import IRNode, Value, MathNode, ConstantNode, VarNode, TunableNode, BitCastOperator, CastOperator, \
-    TestNode
+import sys
+
+from ffcc.ir import (
+    IRNode,
+    Value,
+    MathNode,
+    ConstantNode,
+    VarNode,
+    TunableNode,
+    BitCastOperator,
+    CastOperator,
+    TestNode,
+)
 from io import TextIOBase, StringIO
 
 
-def print_ssa(node: IRNode, out: TextIOBase):
+def print_ssa(node: IRNode, file: TextIOBase = sys.stdout):
     # step 1: convert dag to list (in reverse dependency order)
     irbuff = []
     stack = [node]
@@ -33,7 +44,7 @@ def print_ssa(node: IRNode, out: TextIOBase):
                 n = res.name
                 i = 1
                 while n in used_names:
-                    n = f'{res.name}{i}'
+                    n = f"{res.name}{i}"
                     i += 1
                 names[res] = n
                 used_names.add(n)
@@ -42,66 +53,67 @@ def print_ssa(node: IRNode, out: TextIOBase):
                 names[res] = idx
                 used_names.add(idx)
                 idx += 1
-        _print_ssa_node(op, names, out)
+        _print_ssa_node(op, names, file)
+
 
 def _print_ssa_node(n: IRNode, names: dict[Value, str], out: TextIOBase):
-    res = ', '.join(f'%{names[r]}' for r in n.results)
-    args = ', '.join(f'%{names[r]}' for r in n.args)
+    res = ", ".join(f"%{names[r]}" for r in n.results)
+    args = ", ".join(f"%{names[r]}" for r in n.args)
     match n:
         case MathNode(kind=k, type=t):
-            out.write(f'{res} = {k.name.lower()} {args} : {t}\n')
+            out.write(f"{res} = {k.name.lower()} {args} : {t}\n")
         case ConstantNode(value=v, type=t):
-            out.write(f'{res} = constant {v} : {t}\n')
+            out.write(f"{res} = constant {v} : {t}\n")
         case VarNode(name=n, type=t):
-            out.write(f'{res} = var {repr(n)} : {t}\n')
+            out.write(f"{res} = var {repr(n)} : {t}\n")
         case TunableNode(name=n, hint=h, type=t):
-            out.write(f'{res} = tunable {repr(n)} = {h} : {t}\n')
+            out.write(f"{res} = tunable {repr(n)} = {h} : {t}\n")
         case BitCastOperator(direction, type=t, args=(a,)):
-            out.write(f'{res} = bitcast {direction} {args} to {t}\n')
+            out.write(f"{res} = bitcast {direction} {args} to {t}\n")
         case CastOperator(type=t, args=(a,)):
-            out.write(f'{res} = cast {args} to {t}\n')
+            out.write(f"{res} = cast {args} to {t}\n")
         case TestNode():
-            out.write(f'{res} = test {args}\n')
+            out.write(f"{res} = test {args}\n")
         case _:
             print(type(n))
             print(n.args)
             print(n.results)
-            raise ValueError(f'Unknown node', n)
+            raise ValueError(f"Unknown node", n)
 
 
-def print_dag(node: IRNode, out: TextIOBase | None = None) -> str | None:
-    out_was_none = out is None
+def print_dag(node: IRNode, file: TextIOBase | None = None) -> str | None:
+    out_was_none = file is None
     if out_was_none:
-        out = StringIO()
+        file = StringIO()
 
     match node:
         case MathNode(kind, argops):
-            out.write(f'{kind.name.lower()}(')
-            print_dag(argops[0], out)
+            file.write(f"{kind.name.lower()}(")
+            print_dag(argops[0], file)
             for op in argops[1:]:
-                out.write(', ')
-                print_dag(op, out)
-            out.write(')')
+                file.write(", ")
+                print_dag(op, file)
+            file.write(")")
         case ConstantNode(value):
-            out.write(f'{value}')
+            file.write(f"{value}")
         case VarNode(name):
-            out.write(f'{name}')
-        case TunableNode(name=name):
-            out.write(f'tunable({repr(name)})')
+            file.write(f"{name}")
+        case TunableNode(name=name, hint=h):
+            file.write(f"tunable({repr(name)}={h})")
         case BitCastOperator(direction, argops=(op,)):
-            out.write(f'{direction}(')
-            print_dag(op, out)
-            out.write(')')
+            file.write(f"{direction}(")
+            print_dag(op, file)
+            file.write(")")
         case CastOperator(argops=(op,), type=t):
-            out.write(f'cast<{t}>(')
-            print_dag(op, out)
-            out.write(')')
+            file.write(f"cast<{t}>(")
+            print_dag(op, file)
+            file.write(")")
         case TestNode(argops):
-            out.write(f'test(')
+            file.write(f"test(")
             for op in argops:
-                print_dag(op, out)
-                out.write(', ')
-            out.write(')')
+                print_dag(op, file)
+                file.write(", ")
+            file.write(")")
 
     if out_was_none:
-        return out.getvalue()
+        return file.getvalue()

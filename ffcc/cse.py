@@ -5,6 +5,7 @@ from ffcc.printer import print_dag
 
 LOGGER = logging.getLogger(__name__)
 
+
 def structural_eq(n1: IRNode, n2: IRNode) -> bool:
     """
     check structural equivalency of two IR nodes.
@@ -15,9 +16,9 @@ def structural_eq(n1: IRNode, n2: IRNode) -> bool:
         return False
     if len(n1.args) != len(n2.args):
         return False
-    if not hasattr(type(n1), 'val_attrs'):
+    if not hasattr(type(n1), "val_attrs"):
         return False
-    val_attrs = getattr(type(n1), 'val_attrs')
+    val_attrs = getattr(type(n1), "val_attrs")
     for attr in val_attrs:
         if getattr(n1, attr) != getattr(n2, attr):
             return False
@@ -41,7 +42,9 @@ def cse(node: IRNode) -> IRNode | None:
                 # on structural equivalence, replace the current branch with the equivalent scanned one
                 if structural_eq(expr, op):
                     n.replace_with(expr.result)
-                    LOGGER.info(f'Replacing {print_dag(op)} with equivalent result {print_dag(expr)}')
+                    LOGGER.info(
+                        f"Replacing {print_dag(op)} with equivalent result {print_dag(expr)}"
+                    )
                     break
             # if the loop was not broken == if there was no equivalent object found
             else:

@@ -16,13 +16,21 @@
         in
           {
             devShells.default = with pkgs; mkShell {
-              LD_LIBRARY_PATH = lib.makeLibraryPath [ stdenv.cc.cc.lib zlib ];
+              LD_LIBRARY_PATH = lib.makeLibraryPath [
+                stdenv.cc.cc.lib
+                zlib
+                llvmPackages_20.openmp
+                "/run/opengl-driver"
+              ];
+              NIX_ENFORCE_NO_NATIVE = 0;
               buildInputs = [
                 uv
                 nodejs_22
                 clang_20
-		#zlib
-		#python312Packages.numpy
+                lld_20
+		        llvmPackages_20.openmp
+		        python312Full
+		        llvmPackages_20.libllvm
               ];
             };
           }

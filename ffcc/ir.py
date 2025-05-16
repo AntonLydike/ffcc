@@ -1,8 +1,12 @@
 from __future__ import annotations
 
+from abc import ABC, abstractmethod
 from collections.abc import Iterable
 from enum import Enum, auto
-from typing import Literal, Callable
+from typing import Literal, Callable, ClassVar, Sequence
+from ffcc.helper import CASTS
+
+import math
 
 
 class Kind(Enum):
@@ -14,9 +18,12 @@ class Kind(Enum):
     Negate = auto()
     Log2 = auto()
     Floor = auto()
+    Ashr = auto()  # arithmetic shift rigt
+    Shl = auto()  # shift left
+
 
 class Type:
-    __match_args__ = ('width',)
+    __match_args__ = ("width",)
 
     width: int
 
@@ -26,16 +33,23 @@ class Type:
     def __eq__(self, other):
         return type(self) is type(other) and self.width == other.width
 
+
 class IntType(Type):
+    __match_args__ = ("width",)
+
     def __str__(self) -> str:
-        return f'i{self.width}'
+        return f"i{self.width}"
+
 
 class FloatType(Type):
+    __match_args__ = ("width",)
+
     def __str__(self) -> str:
-        return f'f{self.width}'
+        return f"f{self.width}"
+
 
 class Value:
-    __match_args__ = ('type', 'name')
+    __match_args__ = ("type", "name", "owner")
 
     type: Type
     name: str | None
@@ -53,46 +67,41 @@ class Value:
 
     def __eq__(self, value):
         return value is self
-    
+
     def __str__(self) -> str:
         name = self.name
         if name is None:
-            name = '0'
-        return f'Value(%{name} : {self.type})'
+            name = "0"
+        return f"Value(%{name} : {self.type})"
 
     def __repr__(self):
-        return f'{self.__class__.__name__}(type={self.type}, name={repr(self.name)}, owner={self.owner.__class__.__name__})'
+        return f"{self.__class__.__name__}(type={self.type}, name={repr(self.name)}, owner={self.owner.__class__.__name__})"
 
     def replace_with(self, new_value: Value):
         for use in self.uses:
-            use.args = tuple(
-                val if val != self else new_value for val in use.args
-            )
+            use.args = tuple(val if val != self else new_value for val in use.args)
             new_value.uses.add(use)
         self.uses = set()
 
 
 class IRNode:
-    __match_args__ = ('argops', 'results', 'type')
+    __match_args__ = ("argops", "args", "results", "type", "result")
 
     args: tuple[Value, ...]
     results: tuple[Value, ...]
 
     def __init__(
-            self, 
-            args: tuple[Value | IRNode, ...] = (),
-            result_types: tuple[Type, ...] = (),
-        ):
-        self.args = tuple(arg.result if isinstance(arg, IRNode) else arg for arg in args)
+        self,
+        args: tuple[Value | IRNode, ...] = (),
+        result_types: tuple[Type, ...] = (),
+    ):
+        self.args = tuple(
+            arg.result if isinstance(arg, IRNode) else arg for arg in args
+        )
         self.results = tuple(Value(typ, self) for typ in result_types)
         # add self as use
         for arg in self.args:
             arg.uses.add(self)
-
-    @property
-    def result(self) -> Value:
-        assert len(self.results) == 1
-        return self.results[0]
 
     def __hash__(self):
         return id(self)
@@ -104,6 +113,11 @@ class IRNode:
         return f"{self.__class__.__name__}(args={self.args}, results={self.results})"
 
     @property
+    def result(self) -> Value:
+        assert len(self.results) == 1
+        return self.results[0]
+
+    @property
     def argops(self) -> tuple[IRNode, ...]:
         return tuple(val.owner for val in self.args)
 
@@ -111,7 +125,7 @@ class IRNode:
     def type(self) -> Type:
         return self.result.type
 
-    def walk(self, reverse:bool = False) -> Iterable[IRNode]:
+    def walk(self, reverse: bool = False) -> Iterable[IRNode]:
         if not reverse:
             yield self
 
@@ -122,108 +136,185 @@ class IRNode:
             yield self
 
 
-class MathNode(IRNode):
-    __match_args__ = ('kind', 'argops', 'results', 'result', 'type')
-    val_attrs = ('kind',)
+class ConstantLikeNode(ABC, IRNode):
+    __match_args__ = ("value", "argops", "args", "results", "type", "result")
+    priority: ClassVar[int] = 1
+
+    value: int | float
+
+    @abstractmethod
+    def with_new_value(
+        self, new_val: int | float, replace_res_type: Type | None = None
+    ) -> IRNode:
+        raise NotImplementedError()
+
+    @staticmethod
+    def make(
+        new_val: int | float,
+        replace_res_type: Type | None = None,
+        from_ops: Sequence[ConstantLikeNode] = (),
+    ) -> IRNode:
+        new_op = max(from_ops, key=lambda op: op.priority)
+        return new_op.with_new_value(new_val, replace_res_type)
+
+
+class FoldableNode(ABC, IRNode):
+    __match_args__ = ("argops", "args", "results", "type", "result", "evaluate")
+
+    @abstractmethod
+    def evaluate(self, args: list[float | int]) -> int | float | None:
+        raise NotImplementedError()
+
+
+class MathNode(FoldableNode):
+    __match_args__ = ("kind", "argops", "results", "result", "type")
+    val_attrs = ("kind",)
 
     kind: Kind
 
     def __init__(self, *args: Value | IRNode, kind: Kind, res_type: Type):
-        super().__init__(
-            args=args,
-            result_types=(res_type,)
-        )
+        super().__init__(args=args, result_types=(res_type,))
         self.kind = kind
 
     def __str__(self):
         return f"{self.__class__.__name__}<{self.kind.name}>(args={self.args}, results={self.results})"
 
-class ConstantNode(IRNode):
-    __match_args__ = ('value', 'results', 'type')
-    val_attrs = ('value','type')
+    def evaluate(self, args: list[float | int]):
+        match (self.kind, *args):
+            case (Kind.Negate, a):
+                return -a
+            case (Kind.Log2, a):
+                return math.log2(a)
+            case (Kind.Floor, a):
+                return math.floor(a)
+            case (Kind.Pow, a, b):
+                return a**b
+            case (Kind.Add, a, b):
+                return a + b
+            case (Kind.Sub, a, b):
+                return a - b
+            case (Kind.Mul, a, b):
+                return a * b
+            case (Kind.Div, a, b):
+                return a / b
+            case (Kind.Shl, a, b):
+                return a << b
+            case (Kind.Ashr, a, b):
+                return a >> b
+
+
+class ConstantNode(ConstantLikeNode):
+    __match_args__ = ("value", "results", "type")
+    val_attrs = ("value", "type")
 
     value: int | float
     results: tuple[IntType | FloatType]
 
     def __init__(self, value: int | float, type: Type):
-        super().__init__(
-            result_types=(type,)
-        )
+        super().__init__(result_types=(type,))
         self.value = value
+
+    def with_new_value(
+        self, new_val: int | float, replace_res_type: Type | None = None
+    ) -> IRNode:
+        if replace_res_type is None:
+            replace_res_type = self.type
+        return ConstantNode(new_val, replace_res_type)
 
     def __str__(self):
         return f"{self.__class__.__name__}(value={self.value}, results={self.results})"
 
+
 class VarNode(IRNode):
-    __match_args__ = ('name', 'results', 'result', 'type')
-    val_attrs = ('name', 'type')
+    __match_args__ = ("name", "results", "result", "type")
+    val_attrs = ("name", "type")
 
     name: str
 
     def __init__(self, name: str, type: Type):
-        super().__init__(
-            result_types=(type,)
-        )
+        super().__init__(result_types=(type,))
         self.name = name
         self.result.name = name
 
-    @property
-    def type(self) -> Type:
-        return self.result.type
-
     def __str__(self):
-        return f"{self.__class__.__name__}(name={repr(self.name)}, results={self.results})"
+        return (
+            f"{self.__class__.__name__}(name={repr(self.name)}, results={self.results})"
+        )
+
 
 # Casting and Approximation Logic
 
-class TunableNode(IRNode):
-    __match_args__ = ('name', 'results', 'type', 'hint')
+
+class TunableNode(ConstantLikeNode):
+    __match_args__ = ("name", "results", "type", "hint", "value")
+
+    priority: ClassVar[int] = 10
 
     name: str
     hint: float | int
 
     def __init__(self, name: str, hint: int | float, type: Type):
-        super().__init__(
-            result_types=(type,)
-        )
+        super().__init__(result_types=(type,))
         self.name = name
         self.hint = hint
         self.result.name = name
 
     @property
-    def type(self) -> Type:
-        return self.result.type
+    def value(self) -> int | float:
+        return self.hint
 
-class BitCastOperator(IRNode):
-    __match_args__ = ('direction', 'results', 'type')
-    val_attrs = ('direction',)
+    def with_new_value(
+        self, new_val: int | float, replace_res_type: Type | None = None
+    ) -> IRNode:
+        if replace_res_type is None:
+            replace_res_type = self.type
+        return TunableNode(self.name, new_val, replace_res_type)
+
+
+class BitCastOperator(FoldableNode):
+    __match_args__ = ("direction", "results", "type", "argops", "result")
+    val_attrs = ("direction",)
 
     args: tuple[Value]
-    direction: Literal['f2i', 'i2f']
+    direction: Literal["f2i", "i2f"]
 
-    def __init__(self, value: Value | IRNode, direction: Literal['f2i', 'i2f']):
+    def __init__(self, value: Value | IRNode, direction: Literal["f2i", "i2f"]):
         if not isinstance(value, Value):
             value = value.result
-        res_t = FloatType(value.type.width) if direction == 'i2f' else IntType(value.type.width)
-        super().__init__(
-            result_types=(res_t,),
-            args=(value,)
+        res_t = (
+            FloatType(value.type.width)
+            if direction == "i2f"
+            else IntType(value.type.width)
         )
+        super().__init__(result_types=(res_t,), args=(value,))
         self.direction = direction
 
-class CastOperator(IRNode):
-    __match_args__ = ('results', 'args', 'type')
-    val_attrs = ('type',)
+    def evaluate(self, args: list[float | int]) -> int | float | None:
+        (arg,) = args
+        if (self.direction, self.args[0].type.width) in CASTS:
+            return CASTS[self.direction, self.args[0].type.width](arg)
+
+
+class CastOperator(FoldableNode):
+    __match_args__ = ("results", "args", "type", "argops", "result")
+    val_attrs = ("type",)
 
     args: tuple[Value]
 
     def __init__(self, value: Value | IRNode, type: Type):
-        super().__init__(
-            result_types=(type,),
-            args=(value,)
-        )
+        super().__init__(result_types=(type,), args=(value,))
+
+    def evaluate(self, args: list[float | int]) -> int | float | None:
+        (arg,) = args
+        match self.type:
+            case IntType():
+                return int(arg)
+            case FloatType():
+                return float(arg)
+
 
 # testing only
+
 
 class TestNode(IRNode):
     pass

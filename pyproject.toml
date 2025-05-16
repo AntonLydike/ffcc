@@ -3,7 +3,7 @@ name = "ffcc"
 version = "0.1.0"
 description = "Compiler for fast floating-point approximations"
 readme = "README.md"
-authors = ["Anton Lydike <me@antonlydike.de>"]
+authors = [{name = "Anton Lydike", email="me@antonlydike.de"}]
 license = "AGPL-3.0-or-later"
 requires-python = ">=3.12"
 dependencies = [
@@ -11,11 +11,16 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = [
+    "black>=25.1.0",
     "filecheck>=1.0.2",
     "lit>=18.1.8",
 ]
 jit = [
     "numpy>=2.2.5",
+]
+plot = [
+    "matplotlib>=3.10.3",
+    "pyqt5>=5.15.11",
 ]
 
 [tool.uv]
