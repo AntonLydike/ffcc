@@ -5,14 +5,16 @@
 %x = var x : f32
 
 %0 = add %x, %zero : f32
-// CHECK-DAG: applied neutral_elements: add(x, 0) -> x
+// CHECK-DAG: applied constant_shoving: add(x, 0) -> add(0, x)
+// CHECK-DAG: applied neutral_elements: add(0, x) -> x
 %1 = add %zero, %x : f32
 // CHECK-DAG: applied neutral_elements: add(0, x) -> x
 %2 = sub %x, %zero : f32
 // CHECK-DAG: applied neutral_elements: sub(x, 0) -> x
 
 %3 = mul %x, %one : f32
-// CHECK-DAG: applied neutral_elements: mul(x, 1) -> x
+// CHECK-DAG: applied constant_shoving: mul(x, 1) -> mul(1, x)
+// CHECK-DAG: applied neutral_elements: mul(1, x) -> x
 %4 = mul %one, %x : f32
 // CHECK-DAG: applied neutral_elements: mul(1, x) -> x
 %5 = div %x, %one : f32
@@ -22,7 +24,7 @@
 // CHECK-DAG: applied neutral_elements: sub(0, x) -> negate(x)
 
 %7 = add %x, %6 : f32
-// CHECK-DAG: applied neutral_elements: add(x, negate(x)) -> sub(x, x)
+// CHECK-DAG: applied arith: add(x, negate(x)) -> sub(x, x)
 // CHECK-DAG: applied symmetry: sub(x, x) -> 0
 
 %r = test %0, %1, %2, %3, %4, %5, %7

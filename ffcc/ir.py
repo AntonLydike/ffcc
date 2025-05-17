@@ -153,6 +153,7 @@ class IRNode:
             kind=Kind.Add,
             res_type=self.type,
         )
+
     def __sub__(self, other: IRNode) -> IRNode:
         if not isinstance(other, IRNode):
             raise ValueError(other)
@@ -263,6 +264,7 @@ class MathNode(FoldableNode):
                 return a << b
             case (Kind.Ashr, a, b):
                 return a >> b
+
 
 class ConstantNode(ConstantLikeNode):
     __match_args__ = ("value", "results", "type")

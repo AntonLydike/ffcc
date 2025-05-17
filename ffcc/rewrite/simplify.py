@@ -46,50 +46,66 @@ def simplify_div_exp(node: IRNode) -> IRNode | None:
 
 
 def div_by_constant(node: IRNode) -> IRNode | None:
+    """
+    Convert a / c -> c^-1 * a
+    """
     match node:
         case MathNode(
-            kind=Kind.Div, argops=(a, ConstantNode(value=v, type=ct)), type=t
+            kind=Kind.Div, argops=(a, ConstantLikeNode(value=v) as cst), type=t
         ):
-            return MathNode(
-                ConstantNode(value=1 / v, type=ct), a, kind=Kind.Mul, res_type=t
-            )
+            return cst.with_new_value(1 / v) * a
 
 
 def neutral_elements(node: IRNode) -> IRNode | None:
+    """
+    Apply simplifications that arise from neutral elements, e.g.
+
+        1 * x -> x
+        x / 1 -> x
+        0 * x -> 0
+
+    etc.
+    """
     match node:
+        # x^0 -> 1
         case MathNode(kind=Kind.Pow, argops=(x, ConstantLikeNode(value=0) as cst)):
             return cst.with_new_value(1)
+        # x^1 -> x
         case MathNode(kind=Kind.Pow, argops=(x, ConstantLikeNode(value=1))):
             return x
-        case MathNode(
-            kind,
-            argops,
-        ) if (
-            any(isinstance(op, ConstantNode) for op in argops) and len(argops) == 2
-        ):
-            v0, v1 = argops
-            match (v0, kind, v1):
-                case (
-                    (ConstantNode(value=0), kind.Add, b)
-                    | (b, kind.Add, ConstantNode(value=0))
-                    | (b, kind.Sub, ConstantNode(value=0))
-                ):
-                    return b
-                case (
-                    (ConstantNode(value=1), kind.Mul, b)
-                    | (b, Kind.Mul, ConstantNode(value=1))
-                    | (b, kind.Div, ConstantNode(value=1))
-                ):
-                    return b
-                case (ConstantNode(value=0), kind.Sub, b):
-                    return MathNode(b, kind=Kind.Negate, res_type=b.type)
-        # add a -b or add -b a -> sub a b
+        # 0x -> 0
+        case MathNode(kind=Kind.Mul, argops=(ConstantLikeNode(value=0) as zero, x)):
+            return zero
+        # 0+x -> x
+        case MathNode(kind=Kind.Add, argops=(ConstantLikeNode(value=0), x)):
+            return x
+        # x - 0 -> x
+        case MathNode(kind=Kind.Sub, argops=(x, ConstantLikeNode(value=0))):
+            return x
+        # 0 - x -> -x
+        case MathNode(kind=Kind.Sub, argops=(ConstantLikeNode(value=0), x)):
+            return -x
+        # 0 / x -> 0
+        case MathNode(kind=Kind.Div, argops=(ConstantLikeNode(value=0) as zero, x)):
+            return zero
+        # x / 1 -> x
+        case MathNode(kind=Kind.Div, argops=(x, ConstantLikeNode(value=1))):
+            return x
+        # 1x -> x
+        case MathNode(kind=Kind.Mul, argops=(ConstantLikeNode(value=1), x)):
+            return x
+
+
+def arith(node: IRNode) -> IRNode | None:
+    match node:
+        # a + (-b) or (-b)+a -> a - b
         case MathNode(
             kind=Kind.Add, argops=(a, MathNode(kind=Kind.Negate, argops=(b,)))
         ) | MathNode(
             kind=Kind.Add, argops=(MathNode(kind=Kind.Negate, argops=(b,)), a)
         ):
             return MathNode(a, b, kind=Kind.Sub, res_type=node.result.type)
+
 
 def log_identities(node: IRNode) -> IRNode | None:
     match node:
@@ -157,6 +173,8 @@ def log_identities(node: IRNode) -> IRNode | None:
 
 def symmetry(node: IRNode) -> IRNode | None:
     """
+    Apply simplifying rewrites to operations where both sides have the same argument
+
     convert:
         . x + x -> 2 * x
         . x - x -> 0
@@ -174,9 +192,7 @@ def symmetry(node: IRNode) -> IRNode | None:
                 #    return MathNode(x, ConstantNode(2, i32), kind=Kind.Pow, res_type=x.type)
                 # x + x -> x * 2
                 case Kind.Add:
-                    return MathNode(
-                        ConstantNode(2, i32), x, kind=Kind.Mul, res_type=x.type
-                    )
+                    return ConstantNode(2, i32) * x
                 # x - x -> 0
                 case Kind.Sub:
                     return ConstantNode(0, x.type)
@@ -239,21 +255,18 @@ def constant_shoving(node: IRNode) -> IRNode | None:
                 ),
             ),
         ) if k in (Kind.Add, Kind.Mul, Kind.Div):
-            return MathNode(
-                ConstantLikeNode.make(v1 * v2, c2.type, (c1, c2)),
-                MathNode(
-                    ConstantLikeNode.make(v1 * v3, c3.type, (c1, c3)),
-                    x,
-                    kind=k,
-                    res_type=t2,
-                ),
-                kind=Kind.Add,
-                res_type=t1,
+            rhs = MathNode(
+                ConstantLikeNode.make(v1 * v3, c3.type, (c1, c3)),
+                x,
+                kind=k,
+                res_type=t2,
             )
+            return ConstantLikeNode.make(v1 * v2, c2.type, (c1, c2)) + rhs
 
 
 def constant_fold(node: IRNode) -> IRNode | None:
     match node:
+        # generic constant folding of all constant argument foldable op:
         case FoldableNode(
             argops=argops,
             evaluate=evaluate,
@@ -263,6 +276,8 @@ def constant_fold(node: IRNode) -> IRNode | None:
             result = evaluate(vals)
             if result is not None:
                 return ConstantLikeNode.make(result, res_t, argops)
+        # c1 ∘ (c2 ∘ x) -> (c1 ∘ c2) -> x
+        # for ∘ is + or *
         case MathNode(
             kind=k1,
             argops=(
@@ -287,6 +302,7 @@ simp = Rewriter(
         log_identities,
         div_by_constant,
         symmetry,
+        arith,
         constant_shoving,
     )
 )
