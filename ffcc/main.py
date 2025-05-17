@@ -7,6 +7,7 @@ from argparse import ArgumentParser
 from dataclasses import dataclass
 from typing import TextIO, Callable
 
+from ffcc.diff import diff
 from ffcc.ir import IRNode
 
 from ffcc.cse import cse

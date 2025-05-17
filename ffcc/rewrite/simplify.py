@@ -57,6 +57,10 @@ def div_by_constant(node: IRNode) -> IRNode | None:
 
 def neutral_elements(node: IRNode) -> IRNode | None:
     match node:
+        case MathNode(kind=Kind.Pow, argops=(x, ConstantLikeNode(value=0) as cst)):
+            return cst.with_new_value(1)
+        case MathNode(kind=Kind.Pow, argops=(x, ConstantLikeNode(value=1))):
+            return x
         case MathNode(
             kind,
             argops,
@@ -86,7 +90,6 @@ def neutral_elements(node: IRNode) -> IRNode | None:
             kind=Kind.Add, argops=(MathNode(kind=Kind.Negate, argops=(b,)), a)
         ):
             return MathNode(a, b, kind=Kind.Sub, res_type=node.result.type)
-
 
 def log_identities(node: IRNode) -> IRNode | None:
     match node:

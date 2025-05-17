@@ -3,8 +3,9 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from collections.abc import Iterable
 from enum import Enum, auto
-from typing import Literal, Callable, ClassVar, Sequence
+from typing import Literal, ClassVar, Sequence
 from ffcc.helper import CASTS
+import copy
 
 import math
 
@@ -135,6 +136,67 @@ class IRNode:
         if reverse:
             yield self
 
+    def __contains__(self, item: IRNode):
+        if self is item:
+            return True
+        return any(item in op for op in self.argops)
+
+    def copy(self) -> IRNode:
+        return copy.deepcopy(self)
+
+    def __add__(self, other: IRNode) -> IRNode:
+        if not isinstance(other, IRNode):
+            raise ValueError(other)
+        return MathNode(
+            self,
+            other,
+            kind=Kind.Add,
+            res_type=self.type,
+        )
+    def __sub__(self, other: IRNode) -> IRNode:
+        if not isinstance(other, IRNode):
+            raise ValueError(other)
+        return MathNode(
+            self,
+            other,
+            kind=Kind.Sub,
+            res_type=self.type,
+        )
+
+    def __mul__(self, other: IRNode) -> IRNode:
+        if not isinstance(other, IRNode):
+            raise ValueError(other)
+        return MathNode(
+            self,
+            other,
+            kind=Kind.Mul,
+            res_type=self.type,
+        )
+
+    def __truediv__(self, other: IRNode) -> IRNode:
+        if not isinstance(other, IRNode):
+            raise ValueError(other)
+        return MathNode(
+            self,
+            other,
+            kind=Kind.Div,
+            res_type=self.type,
+        )
+
+    def __pow__(self, power, modulo=None):
+        assert modulo is None
+        if not isinstance(power, IRNode):
+            raise ValueError(power)
+        return MathNode(
+            self,
+            power,
+            kind=Kind.Pow,
+            res_type=self.type,
+        )
+
+    def __neg__(self) -> IRNode:
+        return MathNode(self, kind=Kind.Negate, res_type=self.type)
+
 
 class ConstantLikeNode(ABC, IRNode):
     __match_args__ = ("value", "argops", "args", "results", "type", "result")
@@ -201,7 +263,6 @@ class MathNode(FoldableNode):
                 return a << b
             case (Kind.Ashr, a, b):
                 return a >> b
-
 
 class ConstantNode(ConstantLikeNode):
     __match_args__ = ("value", "results", "type")
