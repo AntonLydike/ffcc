@@ -1,7 +1,7 @@
 import logging
 
 from ffcc.ir import IRNode
-from ffcc.printer import print_dag
+from ffcc.print import print_dag
 
 LOGGER = logging.getLogger(__name__)
 

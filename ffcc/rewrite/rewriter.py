@@ -1,16 +1,23 @@
 import sys
 from typing import Callable
 
-from ffcc.ir import IRNode
-from ffcc.printer import print_dag
+from ffcc.ir import IRNode, Value
+from ffcc.print import print_dag
 
 from logging import getLogger
 
 LOGGER = getLogger(__name__)
 
 
+class RewriteResultModifiedOp:
+    node: IRNode
+
+    def __init__(self, node: IRNode | Value):
+        self.node = node if isinstance(node, IRNode) else node.owner
+
+
 class Rewriter:
-    patterns: tuple[Callable[[IRNode], IRNode | None], ...]
+    patterns: tuple[Callable[[IRNode], IRNode | RewriteResultModifiedOp | None], ...]
 
     def __init__(self, patterns: tuple[Callable[[IRNode], IRNode | None], ...]):
         self.patterns = patterns
@@ -30,6 +37,12 @@ class Rewriter:
             for pattern in self.patterns:
                 new_node = pattern(curr_node)
                 if new_node is None or new_node is curr_node:
+                    continue
+                if isinstance(new_node, RewriteResultModifiedOp):
+                    LOGGER.info(
+                        f"applied {pattern.__name__} inplace: {print_dag(new_node.node)}"
+                    )
+                    worklist.append(new_node.node)
                     continue
                 LOGGER.info(
                     f"applied {pattern.__name__}: {print_dag(curr_node)} -> {print_dag(new_node)}"

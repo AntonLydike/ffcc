@@ -13,7 +13,7 @@ from ffcc.ir import IRNode
 from ffcc.cse import cse
 from ffcc.parse import parse_ssa
 from ffcc.print_llvm import print_llvm_func_for
-from ffcc.printer import print_dag, print_ssa
+from ffcc.print import print_dag, print_ssa
 from ffcc.rewrite.instantiate import instantiate_pass
 from ffcc.rewrite.optimize_types import types
 from ffcc.rewrite.simplify import simp
@@ -51,6 +51,16 @@ formatter = {
     "ssa": print_ssa,
     "llvm": lambda node, buf: print_llvm_func_for(node, "my_func", buf),
 }
+
+
+def config_log(verbose: bool, log_to_out: bool, out = sys.stderr):
+    log_conf = {}
+    if verbose:
+        log_conf["level"] = logging.INFO
+    if log_to_out:
+        log_conf["stream"] = out
+    if log_conf:
+        logging.basicConfig(**log_conf)
 
 
 @dataclass
@@ -127,13 +137,7 @@ class Main:
         )
 
     def apply(self):
-        log_conf = {}
-        if self.verbose:
-            log_conf["level"] = logging.INFO
-        if self.log_to_out:
-            log_conf["stream"] = self.out
-        if log_conf:
-            logging.basicConfig(**log_conf)
+        config_log(verbose=self.verbose, log_to_out=self.log_to_out, out=self.out)
 
         if self.input == sys.stdin and sys.stdin.isatty():
             sys.stderr.write(">> Waiting for input...\n")

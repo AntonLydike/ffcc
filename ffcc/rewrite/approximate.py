@@ -48,97 +48,42 @@ def insert_approximations(node: IRNode) -> IRNode | None:
         case MathNode(kind=Kind.Log2, args=(x,), result=r) if has_var(x.owner):
             x_type = x.type
             r_type = r.type
-            L = 2 ** L_vals[r_type.width]
-            B = B_vals[r_type.width]
+            Linv = ConstantNode(2 ** -L_vals[r_type.width], x_type)
+            mB = ConstantNode(-B_vals[r_type.width], x_type)
             sigma = TunableNode("sigma", 0.45066, r_type)
-            return MathNode(
-                MathNode(
-                    MathNode(
-                        BitCastOperator(x, "f2i"),
-                        ConstantNode(L, x_type),
-                        kind=Kind.Div,
-                        res_type=x_type,
-                    ),
-                    ConstantNode(B, x_type),
-                    kind=Kind.Add,
-                    res_type=x_type,
-                ),
-                sigma,
-                kind=Kind.Add,
-                res_type=r_type,
-            )
+            # mb = -B
+            # Linv = 1/L
+            # return -B + σ + 1/L * Ix
+            return mB + sigma + Linv * BitCastOperator(x, "f2i")
         # replace b^x -> F(L * (B - σ) + x * L / log_b(2))
         # log_b(2) -> log_2(2)/log_2(b) -> 1 / log_2(b)
-        # so final formula is: b^x -> F(L * (B - σ) + b * L * log_2(b))
-        case MathNode(kind=Kind.Pow, argops=(b, x), result=r) if has_var(x) or has_var(
-            b
-        ):
+        # so final formula is: b^x -> F(L * (B - σ) + x * L * log_2(b))
+        case MathNode(
+            kind=Kind.Pow,
+            argops=(b, x),
+            result=r,
+        ) if has_var(
+            x
+        ) or has_var(b):
             x_type = x.type
             r_type = r.type
-            L = 2 ** L_vals[r_type.width]
-            B = B_vals[r_type.width]
+            L = ConstantNode(2 ** L_vals[r_type.width], x_type)
+            B = ConstantNode(B_vals[r_type.width], x_type)
             sigma = TunableNode("sigma", 0.45066, r_type)
-            intt = IntType(max(x_type.width, r_type.width))
             return BitCastOperator(
                 direction="i2f",
-                value=MathNode(
-                    MathNode(  # L * (B - σ)
-                        ConstantNode(L, x_type),
-                        MathNode(
-                            ConstantNode(B, x_type),
-                            sigma,
-                            kind=Kind.Sub,
-                            res_type=x_type,
-                        ),
-                        kind=Kind.Mul,
-                        res_type=x_type,
-                    ),
-                    MathNode(  # x * L * log_2(b)
-                        x,
-                        MathNode(
-                            ConstantNode(L, x_type),
-                            MathNode(b, kind=Kind.Log2, res_type=x_type),
-                            kind=Kind.Mul,
-                            res_type=x_type,
-                        ),
-                        kind=Kind.Mul,
-                        res_type=x_type,
-                    ),
-                    kind=Kind.Add,
-                    res_type=intt,
-                ),
+                value=(L * (B - sigma))
+                + (L * MathNode(b, kind=Kind.Log2, res_type=x_type) * x),
             )
         # replace a / x -> a * F(2L * (B - σ) - I(x))
         case MathNode(kind=Kind.Div, argops=(a, x), result=r) if has_var(x):
             x_type = x.type
             r_type = r.type
-            L = 2 ** L_vals[r_type.width]
-            B = B_vals[r_type.width]
+            twoL = ConstantNode(2 * (2 ** L_vals[r_type.width]), x_type)
+            B = ConstantNode(B_vals[r_type.width], x_type)
             sigma = TunableNode("sigma", 0.45066, r_type)
-            intt = IntType(max(x_type.width, r_type.width))
-            return MathNode(
-                a,
-                BitCastOperator(
-                    direction="i2f",
-                    value=MathNode(  # 2L * (B - σ) - I(x)
-                        MathNode(
-                            ConstantNode(2 * L, x_type),
-                            MathNode(
-                                ConstantNode(B, x_type),
-                                sigma,
-                                kind=Kind.Sub,
-                                res_type=x_type,
-                            ),
-                            kind=Kind.Mul,
-                            res_type=x_type,
-                        ),
-                        BitCastOperator(x, "f2i"),
-                        kind=Kind.Sub,
-                        res_type=intt,
-                    ),
-                ),
-                kind=Kind.Mul,
-                res_type=r_type,
+            return a * BitCastOperator(
+                direction="i2f", value=twoL * (B - sigma) - BitCastOperator(x, "f2i")
             )
 
 

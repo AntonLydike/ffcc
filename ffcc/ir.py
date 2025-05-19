@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import ctypes
 from abc import ABC, abstractmethod
 from collections.abc import Iterable
 from enum import Enum, auto
@@ -34,6 +35,11 @@ class Type:
     def __eq__(self, other):
         return type(self) is type(other) and self.width == other.width
 
+    @property
+    @abstractmethod
+    def ctype(self):
+        raise NotImplementedError()
+
 
 class IntType(Type):
     __match_args__ = ("width",)
@@ -41,12 +47,30 @@ class IntType(Type):
     def __str__(self) -> str:
         return f"i{self.width}"
 
+    @property
+    def ctype(self):
+        if self.width == 16:
+            return ctypes.c_int16
+        if self.width == 32:
+            return ctypes.c_int32
+        if self.width == 64:
+            return ctypes.c_int64
+        raise ValueError()
+
 
 class FloatType(Type):
     __match_args__ = ("width",)
 
     def __str__(self) -> str:
         return f"f{self.width}"
+
+    @property
+    def ctype(self):
+        if self.width == 32:
+            return ctypes.c_float
+        if self.width == 64:
+            return ctypes.c_double
+        raise ValueError()
 
 
 class Value:
@@ -197,6 +221,26 @@ class IRNode:
 
     def __neg__(self) -> IRNode:
         return MathNode(self, kind=Kind.Negate, res_type=self.type)
+
+    def __lshift__(self, other: IRNode) -> IRNode:
+        if not isinstance(other, IRNode):
+            raise ValueError(other)
+        return MathNode(
+            self,
+            other,
+            kind=Kind.Shl,
+            res_type=self.type,
+        )
+
+    def __rshift__(self, other: IRNode) -> IRNode:
+        if not isinstance(other, IRNode):
+            raise ValueError(other)
+        return MathNode(
+            self,
+            other,
+            kind=Kind.Ashr,
+            res_type=self.type,
+        )
 
 
 class ConstantLikeNode(ABC, IRNode):

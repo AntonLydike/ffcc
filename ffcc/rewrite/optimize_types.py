@@ -9,7 +9,7 @@ from ffcc.ir import (
 )
 from math import log2
 
-from ffcc.rewrite.rewriter import Rewriter
+from ffcc.rewrite.rewriter import Rewriter, RewriteResultModifiedOp
 
 
 def is_power_of_two(x: int | float) -> bool:
@@ -20,7 +20,7 @@ def is_close_to_integer(x: int | float, threshold=0.00001) -> bool:
     return abs((round(x) - x) / x) < threshold
 
 
-def optimize_types(node: IRNode) -> IRNode | None:
+def optimize_types(node: IRNode) -> IRNode | RewriteResultModifiedOp | None:
     match node:
         # replace a * 2^c with a shift on integer domains
         case MathNode(
@@ -34,22 +34,32 @@ def optimize_types(node: IRNode) -> IRNode | None:
         ):
             amount = int(log2(abs(v)))
             if amount < 0:
-                m = MathNode(
-                    a,
-                    c.with_new_value(-amount, IntType(32)),
-                    kind=Kind.Ashr,
-                    res_type=a.type,
-                )
+                m = a >> c.with_new_value(-amount, IntType(32))
             else:
-                m = MathNode(
-                    a,
-                    c.with_new_value(amount, IntType(32)),
-                    kind=Kind.Shl,
-                    res_type=a.type,
-                )
+                m = a << c.with_new_value(amount, IntType(32))
             if v < 0:
-                return MathNode(m, kind=Kind.Negate, res_type=a.type)
+                return -m
             return m
+        case BitCastOperator(
+            direction="f2i",
+            argops=(
+                MathNode(
+                    kind=Kind.Add | Kind.Sub | Kind.Negate, type=IntType(width=w)
+                ) as inp,
+            ),
+        ):
+            inp.result.type = FloatType(w)
+            return RewriteResultModifiedOp(inp)
+        case BitCastOperator(
+            direction="i2f",
+            argops=(
+                MathNode(
+                    kind=Kind.Add | Kind.Sub | Kind.Negate, type=FloatType(width=w)
+                ) as inp,
+            ),
+        ):
+            inp.result.type = IntType(w)
+            return RewriteResultModifiedOp(inp)
         # convert a constant to an int if:
         #  - if it forces a result to be float when it could be int
         #  - that result is used as input to a bitcast
@@ -60,13 +70,13 @@ def optimize_types(node: IRNode) -> IRNode | None:
                 ConstantLikeNode(value=v, type=FloatType(width=w)) as c,
                 a,
             ),
-            type=res_t,
-        ) if is_close_to_integer(v) and isinstance(res_t, IntType):
+            type=IntType() as int_t,
+        ) if is_close_to_integer(v):
             return MathNode(
                 c.with_new_value(round(v), IntType(width=w)),
                 a,
                 kind=k,
-                res_type=res_t,
+                res_type=int_t,
             )
 
 

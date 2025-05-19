@@ -1,6 +1,19 @@
-from ffcc.ir import IRNode, VarNode, ConstantNode, FloatType, MathNode, Kind
+from ffcc.ir import IRNode, VarNode, ConstantNode, FloatType, MathNode, Kind, Value
+import math
 
 f32 = FloatType(32)
+
+
+def cst(x: float | int) -> ConstantNode:
+    return ConstantNode(x, f32)
+
+
+def log2(n: IRNode | Value) -> MathNode:
+    return MathNode(n, kind=Kind.Log2, res_type=n.type)
+
+
+def ln(n: IRNode | Value) -> IRNode:
+    return cst(1 / math.log2(math.e)) * log2(n)
 
 
 def diff(node: IRNode, var: VarNode) -> IRNode:
@@ -37,8 +50,12 @@ def diff(node: IRNode, var: VarNode) -> IRNode:
             b = b.copy()
             a = a.copy()
             return (ad * b - a * bd) / (b ** ConstantNode(2, t))
+        # (b^e)' -> ln(b)b^e * e'
+        case MathNode(kind=Kind.Pow, argops=(base, exp)) if var not in base:
+            cbase = base.copy()
+            cexp = exp.copy()
+            return ln(cbase) * (cbase**cexp) * diff(exp, var)
+
         # chain rule:
         # h(g(x))' -> h'(g(x)) * g'(x)
-        case MathNode(kind=k, argops=(a, b), type=t):
-            raise NotImplementedError()
     raise NotImplementedError()

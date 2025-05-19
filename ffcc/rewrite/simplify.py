@@ -208,7 +208,7 @@ def symmetry(node: IRNode) -> IRNode | None:
 
 def constant_shoving(node: IRNode) -> IRNode | None:
     """
-    shove constants to the left
+    rewrites that move constants around to make them foldable
     """
     match node:
         # switch math(a, const) -> math(const, a)
@@ -217,51 +217,29 @@ def constant_shoving(node: IRNode) -> IRNode | None:
             Kind.Add,
         ) and not isinstance(a, ConstantLikeNode):
             return MathNode(c, a, kind=k, res_type=node.type)
-        # (c1 ∘ (c2 ∘ x)) -> (c1 ∘ c2) ∘ x
-        # ∘ is + or *
+        # a ∘ (c ∘ b) -> c ∘ (a ∘ b)
+        # if c is constant and a is not
         case MathNode(
             kind=k1,
             argops=(
-                ConstantLikeNode() as c1,
-                MathNode(kind=k2, argops=(ConstantLikeNode() as c2, x), type=t2),
+                x,
+                MathNode(kind=k2, argops=(a, b), type=t2),
+            )
+            | (
+                MathNode(kind=k2, argops=(a, b), type=t2),
+                x,
             ),
             type=t,
         ) if (
             k1 == k2
-            and k1 in (Kind.Mul, Kind.Add)
-            and t2 == t
             and not isinstance(x, ConstantLikeNode)
+            and any(isinstance(x, ConstantLikeNode) for x in (a, b))
+            and k1 in (Kind.Mul, Kind.Add)
         ):
+            cst, ncst = (a, b) if isinstance(a, ConstantLikeNode) else (b, a)
             return MathNode(
-                MathNode(c1, c2, kind=k1, res_type=t), x, kind=k1, res_type=t
+                cst, MathNode(x, ncst, kind=k1, res_type=t), kind=k1, res_type=t
             )
-        # c1 * (c2 + (c3 ∘ x))) -> c4 + (c5 ∘ x)
-        # ∘ is any operation, c4 = c1 * c2, c5 = c1 * c3
-        case MathNode(
-            kind=Kind.Mul,
-            type=t1,
-            argops=(
-                ConstantLikeNode(value=v1) as c1,
-                MathNode(
-                    kind=Kind.Add,
-                    argops=(
-                        ConstantLikeNode(value=v2) as c2,
-                        MathNode(
-                            kind=k,
-                            type=t2,
-                            argops=(ConstantLikeNode(value=v3) as c3, x),
-                        ),
-                    ),
-                ),
-            ),
-        ) if k in (Kind.Add, Kind.Mul, Kind.Div):
-            rhs = MathNode(
-                ConstantLikeNode.make(v1 * v3, c3.type, (c1, c3)),
-                x,
-                kind=k,
-                res_type=t2,
-            )
-            return ConstantLikeNode.make(v1 * v2, c2.type, (c1, c2)) + rhs
 
 
 def constant_fold(node: IRNode) -> IRNode | None:
@@ -291,6 +269,54 @@ def constant_fold(node: IRNode) -> IRNode | None:
                 x,
                 kind=k1,
                 res_type=res_t,
+            )
+        # c1 * (c2 + (c3 ∘ x))) -> c4 + (c5 ∘ x)
+        # ∘ is any operation, c4 = c1 * c2, c5 = c1 * c3
+        case MathNode(
+            kind=Kind.Mul,
+            type=t1,
+            argops=(
+                ConstantLikeNode(value=v1) as c1,
+                MathNode(
+                    kind=Kind.Add,
+                    argops=(
+                        ConstantLikeNode(value=v2) as c2,
+                        MathNode(
+                            kind=k,
+                            type=t2,
+                            argops=(ConstantLikeNode(value=v3) as c3, x),
+                        ),
+                    ),
+                ),
+            ),
+        ) if k in (Kind.Add, Kind.Mul, Kind.Div):
+            rhs = MathNode(
+                ConstantLikeNode.make(v1 * v3, c3.type, (c1, c3)),
+                x,
+                kind=k,
+                res_type=t2,
+            )
+            return ConstantLikeNode.make(v1 * v2, c2.type, (c1, c2)) + rhs
+        # (c1 ∘ (c2 ∘ x)) -> (c1 ∘ c2) ∘ x
+        # ∘ is + or *
+        case MathNode(
+            kind=k1,
+            argops=(
+                ConstantLikeNode() as c1,
+                MathNode(kind=k2, argops=(ConstantLikeNode() as c2, x), type=t2),
+            ),
+            type=t,
+            evaluate=evaluate,
+        ) if (
+            k1 == k2
+            and k1 in (Kind.Mul, Kind.Add)
+            and not isinstance(x, ConstantLikeNode)
+        ):
+            return MathNode(
+                ConstantLikeNode.make(evaluate(c1.value, c2.value), t, (c1, c2)),
+                x,
+                kind=k1,
+                res_type=t,
             )
 
 

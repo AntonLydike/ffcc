@@ -84,15 +84,17 @@ def _args_key(arg: Value) -> tuple[int, str]:
 def print_llvm_func_for(
     node: IRNode, sym_name: str = "my_func", file: TextIOBase = sys.stdout
 ) -> tuple[list[Value], list[Value]]:
-    inputs: list[Value] = []
+    inputs: set[Value] = set()
 
     names: dict[Value, str] = {}
+
+    external_funcs: set[str] = set()
 
     # grab vars and tunables
     for op in node.walk():
         match op:
             case VarNode(result=r) | TunableNode(result=r):
-                inputs.append(r)
+                inputs.add(r)
                 _name(r, names)
             case ConstantNode(result=r, value=v, type=t) if isinstance(t, FloatType):
                 names[r] = float_with_bitwidth(v, t.width)
@@ -100,6 +102,8 @@ def print_llvm_func_for(
                 names[r] = str(int(v))
 
     inputs = sorted(inputs, key=_args_key)
+
+    args_count = sum(isinstance(x.owner, VarNode) for x in inputs)
 
     # print function heading
     print(
@@ -112,6 +116,7 @@ def print_llvm_func_for(
         *text: str | Value | Type | int | float,
         indent: str = "  ",
         res_t: Type | None = None,
+        to_externals: bool = False,
     ):
         parts = []
         if result is not None:
@@ -125,7 +130,10 @@ def print_llvm_func_for(
                 parts.append(_t(part))
             else:
                 parts.append(str(part))
-        print(f'{indent}{" ".join(parts)}', file=file)
+        if to_externals:
+            external_funcs.add(" ".join(parts))
+        else:
+            print(f'{indent}{" ".join(parts)}', file=file)
         # cast result to type
         if res_t is not None and result is not None:
             casted_t = _ensure_type(result, result.type, val_t=res_t)
@@ -173,6 +181,38 @@ def print_llvm_func_for(
                     # int div shoudl be sdiv (signed division)
                     op = f"s{op}"
                 ins(r, op, a.type, a, ",", b, res_t=a.type)
+            case MathNode(
+                kind=Kind.Pow,
+                result=r,
+                args=(
+                    base,
+                    exp,
+                ),
+                type=t,
+            ):
+                base = _ensure_type(base, FloatType(base.type.width))
+                if isinstance(exp.type, IntType):
+                    ins(r, "call", f"@llvm.powi.{_t(base.type)}.{_t(exp.type)}")
+                    external_funcs.add(
+                        f"declare {_t(t)} @llvm.powi.{str(base.type)}.{str(exp.type)}({_t(base.type)}, {_t(exp.type)})"
+                    )
+                else:
+                    exp = _ensure_type(exp, base.type)
+                    ins(
+                        r,
+                        "call",
+                        _t(t),
+                        f"@llvm.pow.{str(base.type)}(",
+                        _t(base.type),
+                        base,
+                        ",",
+                        _t(exp.type),
+                        exp,
+                        ")",
+                    )
+                    external_funcs.add(
+                        f"declare {_t(t)} @llvm.pow.{str(base.type)}({_t(base.type)}, {_t(exp.type)})"
+                    )
             case MathNode(kind=k, result=r):
                 ins(r, "unknown op", k.name.lower(), res_t=r.type)
             case BitCastOperator(direction=d, args=(a,), result=r, type=ty):
@@ -189,6 +229,7 @@ def print_llvm_func_for(
                 print("This shouldn't happen!")
 
     ins(None, "ret", node.type, node.result)
-    print("}", file=file)
+    print("}\n", file=file)
+    print("\n".join(external_funcs), file=file)
 
-    return inputs
+    return inputs[:args_count], inputs[args_count:]
