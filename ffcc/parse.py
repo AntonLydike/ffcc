@@ -96,7 +96,7 @@ def parse_ssa(text: str, baselineno: int = 0) -> IRNode:
                         for arg in args
                         if arg[1] != ","
                     ),
-                    result_types=(IntType(0),),
+                    result_type=IntType(0),
                 )
             case [(pos, kind), lhs, (_, ","), rhs, (_, ":"), typ]:
                 if kind not in NAME_TO_KIND:

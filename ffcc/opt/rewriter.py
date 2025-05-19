@@ -1,7 +1,7 @@
 import sys
 from typing import Callable
 
-from ffcc.ir import IRNode, Value
+from ffcc.ir import IRNode, Value, IntType
 from ffcc.print import print_dag
 
 from logging import getLogger
@@ -29,7 +29,7 @@ class Rewriter:
         seen = {node}
         worklist = [node]
 
-        fake_root = IRNode((node,))
+        fake_root = IRNode((node,), IntType(0))
         del node
 
         while worklist:
@@ -47,15 +47,14 @@ class Rewriter:
                 LOGGER.info(
                     f"applied {pattern.__name__}: {print_dag(curr_node)} -> {print_dag(new_node)}"
                 )
-                for old, new in zip(curr_node.results, new_node.results, strict=True):
-                    # add modified nodes to worklist
-                    for use in old.uses:
-                        if use in seen:
-                            pass
-                        worklist.append(use)
-                        seen.add(use)
+                # add modified nodes to worklist
+                for use in curr_node.result.uses:
+                    if use in seen:
+                        pass
+                    worklist.append(use)
+                    seen.add(use)
 
-                    old.replace_with(new)
+                curr_node.result.replace_with(new_node.result)
                 worklist.append(new_node)
                 break
             for arg in curr_node.args:

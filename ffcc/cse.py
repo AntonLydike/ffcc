@@ -1,6 +1,6 @@
 import logging
 
-from ffcc.ir import IRNode
+from ffcc.ir import IRNode, IntType
 from ffcc.print import print_dag
 
 LOGGER = logging.getLogger(__name__)
@@ -31,7 +31,7 @@ def cse(node: IRNode) -> IRNode | None:
     unique_subexprs: list[IRNode] = []
     # elements to check
     worklist: list[IRNode] = [node]
-    root = IRNode((node,))
+    root = IRNode((node,), IntType(0))
     while worklist:
         for n in worklist.pop().args:
             op = n.owner

@@ -35,29 +35,28 @@ def print_ssa(node: IRNode, file: TextIOBase = sys.stdout):
         printed.add(op)
 
         # assign names to results before printing
-        for res in op.results:
-            # skip already named values
-            if res in names:
-                continue
-            # check if name hint is set
-            if res.name is not None and not res.name[0].isnumeric():
-                n = res.name
-                i = 1
-                while n in used_names:
-                    n = f"{res.name}{i}"
-                    i += 1
-                names[res] = n
-                used_names.add(n)
-            # generate sequential name
-            else:
-                names[res] = idx
-                used_names.add(idx)
-                idx += 1
+        # skip already named values
+        if op.result in names:
+            continue
+        # check if name hint is set
+        if op.result.name is not None and not op.result.name[0].isnumeric():
+            n = op.result.name
+            i = 1
+            while n in used_names:
+                n = f"{op.result.name}{i}"
+                i += 1
+            names[op.result] = n
+            used_names.add(n)
+        # generate sequential name
+        else:
+            names[op.result] = idx
+            used_names.add(idx)
+            idx += 1
         _print_ssa_node(op, names, file)
 
 
 def _print_ssa_node(n: IRNode, names: dict[Value, str], out: TextIOBase):
-    res = ", ".join(f"%{names[r]}" for r in n.results)
+    res = f"%{names[n.result]}"
     args = ", ".join(f"%{names[r]}" for r in n.args)
     match n:
         case MathNode(kind=k, type=t):
@@ -77,7 +76,7 @@ def _print_ssa_node(n: IRNode, names: dict[Value, str], out: TextIOBase):
         case _:
             print(type(n))
             print(n.args)
-            print(n.results)
+            print(n.result)
             raise ValueError(f"Unknown node", n)
 
 

@@ -110,20 +110,21 @@ class Value:
 
 
 class IRNode:
-    __match_args__ = ("argops", "args", "results", "type", "result")
+    __match_args__ = ("argops", "args", "result", "type")
 
     args: tuple[Value, ...]
-    results: tuple[Value, ...]
+    result: Value
 
     def __init__(
         self,
         args: tuple[Value | IRNode, ...] = (),
-        result_types: tuple[Type, ...] = (),
+        result_type: Type = None,
     ):
+        assert result_type is not None
         self.args = tuple(
             arg.result if isinstance(arg, IRNode) else arg for arg in args
         )
-        self.results = tuple(Value(typ, self) for typ in result_types)
+        self.result = Value(result_type, self)
         # add self as use
         for arg in self.args:
             arg.uses.add(self)
@@ -135,12 +136,7 @@ class IRNode:
         return self is other
 
     def __str__(self):
-        return f"{self.__class__.__name__}(args={self.args}, results={self.results})"
-
-    @property
-    def result(self) -> Value:
-        assert len(self.results) == 1
-        return self.results[0]
+        return f"{self.__class__.__name__}(args={self.args}, result={self.result})"
 
     @property
     def argops(self) -> tuple[IRNode, ...]:
@@ -244,7 +240,7 @@ class IRNode:
 
 
 class ConstantLikeNode(ABC, IRNode):
-    __match_args__ = ("value", "argops", "args", "results", "type", "result")
+    __match_args__ = ("value", "argops", "args", "type", "result")
     priority: ClassVar[int] = 1
 
     value: int | float
@@ -266,7 +262,7 @@ class ConstantLikeNode(ABC, IRNode):
 
 
 class FoldableNode(ABC, IRNode):
-    __match_args__ = ("argops", "args", "results", "type", "result", "evaluate")
+    __match_args__ = ("argops", "args", "type", "result", "evaluate")
 
     @abstractmethod
     def evaluate(self, args: list[float | int]) -> int | float | None:
@@ -274,17 +270,17 @@ class FoldableNode(ABC, IRNode):
 
 
 class MathNode(FoldableNode):
-    __match_args__ = ("kind", "argops", "results", "result", "type")
+    __match_args__ = ("kind", "argops", "result", "type")
     val_attrs = ("kind",)
 
     kind: Kind
 
     def __init__(self, *args: Value | IRNode, kind: Kind, res_type: Type):
-        super().__init__(args=args, result_types=(res_type,))
+        super().__init__(args=args, result_type=res_type)
         self.kind = kind
 
     def __str__(self):
-        return f"{self.__class__.__name__}<{self.kind.name}>(args={self.args}, results={self.results})"
+        return f"{self.__class__.__name__}<{self.kind.name}>(args={self.args}, result={self.result})"
 
     def evaluate(self, args: list[float | int]):
         match (self.kind, *args):
@@ -311,14 +307,13 @@ class MathNode(FoldableNode):
 
 
 class ConstantNode(ConstantLikeNode):
-    __match_args__ = ("value", "results", "type")
+    __match_args__ = ("value", "result", "type")
     val_attrs = ("value", "type")
 
     value: int | float
-    results: tuple[IntType | FloatType]
 
     def __init__(self, value: int | float, type: Type):
-        super().__init__(result_types=(type,))
+        super().__init__(result_type=type)
         self.value = value
 
     def with_new_value(
@@ -329,23 +324,23 @@ class ConstantNode(ConstantLikeNode):
         return ConstantNode(new_val, replace_res_type)
 
     def __str__(self):
-        return f"{self.__class__.__name__}(value={self.value}, results={self.results})"
+        return f"{self.__class__.__name__}(value={self.value}, result={self.result})"
 
 
 class VarNode(IRNode):
-    __match_args__ = ("name", "results", "result", "type")
+    __match_args__ = ("name", "result", "type")
     val_attrs = ("name", "type")
 
     name: str
 
     def __init__(self, name: str, type: Type):
-        super().__init__(result_types=(type,))
+        super().__init__(result_type=type)
         self.name = name
         self.result.name = name
 
     def __str__(self):
         return (
-            f"{self.__class__.__name__}(name={repr(self.name)}, results={self.results})"
+            f"{self.__class__.__name__}(name={repr(self.name)}, result={self.result})"
         )
 
 
@@ -353,7 +348,7 @@ class VarNode(IRNode):
 
 
 class TunableNode(ConstantLikeNode):
-    __match_args__ = ("name", "results", "type", "hint", "value")
+    __match_args__ = ("name", "result", "type", "hint", "value")
 
     priority: ClassVar[int] = 10
 
@@ -361,7 +356,7 @@ class TunableNode(ConstantLikeNode):
     hint: float | int
 
     def __init__(self, name: str, hint: int | float, type: Type):
-        super().__init__(result_types=(type,))
+        super().__init__(result_type=type)
         self.name = name
         self.hint = hint
         self.result.name = name
@@ -379,7 +374,7 @@ class TunableNode(ConstantLikeNode):
 
 
 class BitCastOperator(FoldableNode):
-    __match_args__ = ("direction", "results", "type", "argops", "result")
+    __match_args__ = ("direction", "type", "argops", "result")
     val_attrs = ("direction",)
 
     args: tuple[Value]
@@ -393,7 +388,7 @@ class BitCastOperator(FoldableNode):
             if direction == "i2f"
             else IntType(value.type.width)
         )
-        super().__init__(result_types=(res_t,), args=(value,))
+        super().__init__(result_type=res_t, args=(value,))
         self.direction = direction
 
     def evaluate(self, args: list[float | int]) -> int | float | None:
@@ -403,13 +398,13 @@ class BitCastOperator(FoldableNode):
 
 
 class CastOperator(FoldableNode):
-    __match_args__ = ("results", "args", "type", "argops", "result")
+    __match_args__ = ("args", "type", "argops", "result")
     val_attrs = ("type",)
 
     args: tuple[Value]
 
     def __init__(self, value: Value | IRNode, type: Type):
-        super().__init__(result_types=(type,), args=(value,))
+        super().__init__(result_type=type, args=(value,))
 
     def evaluate(self, args: list[float | int]) -> int | float | None:
         (arg,) = args
