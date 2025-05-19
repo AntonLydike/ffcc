@@ -4,6 +4,14 @@ Tool for generating fast approximations of floating point math by (ab)using the 
 
 Not yet ready for use.
 
+## Development Environment:
+
+There's a `flake.nix` file for all nixos users.
+
+The python dependencies are managed through `uv`. Setting everything up usually involves 
+running a combination of `uv venv; uv sync --all-extrast; source venv/bin/activate`.
+
+To run tests, use `lit tests/filecheck`, there are no pytests yet.
 
 ## License:
 
