@@ -146,7 +146,7 @@ if __name__ == "__main__":
         default=None,
     )
     parser.add_argument(
-        "-s", "--steps", type=int, help="Number of steps on the x-axsis", default=100
+        "-s", "--steps", type=int, help="Number of steps on the x-axsis", default=10000
     )
     parser.add_argument(
         "-v", "--verbose", help="Enable loggin", action="store_true"
