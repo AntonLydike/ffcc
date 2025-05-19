@@ -245,7 +245,9 @@ def instantiate_node_as_jit(
     return lib, args, tunes
 
 
-def _build_harness(args: list[Value], tunables: list[Value], omp_threads: int = 1) -> str:
+def _build_harness(
+    args: list[Value], tunables: list[Value], omp_threads: int = 1
+) -> str:
     """
     Assemble the C harness file (from HARNESS_TEMPLATE).
 

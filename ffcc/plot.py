@@ -129,6 +129,7 @@ def parse_domain(dom: str) -> tuple[float, float]:
         raise ValueError("Expected a single comma in the domain")
     return float(parts[0]), float(parts[1])
 
+
 def plot_main():
     parser = argparse.ArgumentParser(description="Plot program")
     parser.add_argument(
@@ -147,9 +148,7 @@ def plot_main():
     parser.add_argument(
         "-s", "--steps", type=int, help="Number of steps on the x-axsis", default=10000
     )
-    parser.add_argument(
-        "-v", "--verbose", help="Enable loggin", action="store_true"
-    )
+    parser.add_argument("-v", "--verbose", help="Enable loggin", action="store_true")
     parser.add_argument(
         "--gui", help="Open result in interactive window", action="store_true"
     )
@@ -203,6 +202,7 @@ def plot_main():
 
     if ns.output is None and not ns.gui:
         print("Warning: No output format configured.")
+
 
 if __name__ == "__main__":
     plot_main()

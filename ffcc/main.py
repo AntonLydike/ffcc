@@ -53,7 +53,7 @@ formatter = {
 }
 
 
-def config_log(verbose: bool, log_to_out: bool, out = sys.stderr):
+def config_log(verbose: bool, log_to_out: bool, out=sys.stderr):
     log_conf = {}
     if verbose:
         log_conf["level"] = logging.INFO
