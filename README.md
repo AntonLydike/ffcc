@@ -8,7 +8,7 @@ Not yet ready for use.
 
 There's a `flake.nix` file for all nixos users.
 
-The python dependencies are managed through `uv`. Setting everything up usually involves 
+The python dependencies are managed through `uv`. Setting everything up usually involves
 running a combination of `uv venv; uv sync --all-extrast; source venv/bin/activate`.
 
 To run tests, use `lit tests/filecheck`, there are no pytests yet.

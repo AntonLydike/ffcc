@@ -160,3 +160,8 @@ class Main:
 
     def __call__(self):
         self.apply()
+
+
+def main():
+    main = Main.from_cli(sys.argv)
+    main()

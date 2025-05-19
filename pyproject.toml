@@ -23,6 +23,10 @@ plot = [
     "pyqt5>=5.15.11",
 ]
 
+[project.scripts]
+ffcc = "ffcc.main:main"
+ffcc-plot = "ffcc.plot:plot_main"
+
 [tool.uv]
 package = true
 

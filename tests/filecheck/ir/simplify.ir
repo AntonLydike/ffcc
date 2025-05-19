@@ -1,4 +1,4 @@
-// RUN: python -m ffcc --split-input-file --verbose --log-to-out -p simp %s | filecheck %s
+// RUN: ffcc --split-input-file --verbose --log-to-out -p simp %s | filecheck %s
 
 // simple example meant as a catch-all:
 

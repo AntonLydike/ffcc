@@ -1,4 +1,4 @@
-// RUN: python -m ffcc --verbose --log-to-out -p simp %s | filecheck %s
+// RUN: ffcc --verbose --log-to-out -p simp %s | filecheck %s
 
 %1 = constant 1 : f32
 %2 = constant 2 : f32

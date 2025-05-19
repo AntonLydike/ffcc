@@ -1,5 +1,5 @@
-// RUN: python -m ffcc -p approx,cse,simp,types %s | filecheck %s
-// RUN: python -m ffcc -p approx,cse,simp,types %s -f llvm | opt -S | filecheck %s --check-prefix=LLVM
+// RUN: ffcc -p approx,cse,simp,types %s | filecheck %s
+// RUN: ffcc -p approx,cse,simp,types %s -f llvm | opt -S | filecheck %s --check-prefix=LLVM
 
 %x = var x : f32
 %one = constant 1 : f32

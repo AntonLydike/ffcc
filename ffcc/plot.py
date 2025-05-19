@@ -129,8 +129,7 @@ def parse_domain(dom: str) -> tuple[float, float]:
         raise ValueError("Expected a single comma in the domain")
     return float(parts[0]), float(parts[1])
 
-
-if __name__ == "__main__":
+def plot_main():
     parser = argparse.ArgumentParser(description="Plot program")
     parser.add_argument(
         "-i",
@@ -204,3 +203,6 @@ if __name__ == "__main__":
 
     if ns.output is None and not ns.gui:
         print("Warning: No output format configured.")
+
+if __name__ == "__main__":
+    plot_main()
