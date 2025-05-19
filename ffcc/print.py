@@ -40,7 +40,7 @@ def print_ssa(node: IRNode, file: TextIOBase = sys.stdout):
             if res in names:
                 continue
             # check if name hint is set
-            if res.name is not None:
+            if res.name is not None and not res.name[0].isnumeric():
                 n = res.name
                 i = 1
                 while n in used_names:

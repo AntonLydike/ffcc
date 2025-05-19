@@ -104,7 +104,7 @@ def plot_eval(
     linestyles = ("-", "--", ":")
 
     for p, name, i in zip(programs, names, range(len(names)), strict=True):
-        p.eval_on_domain(domain, p.initial_tune, result=result)
+        p.eval_on_domain(domain, result=result)
 
         ax.plot(
             domain,
@@ -185,7 +185,7 @@ def plot_main():
 
     programs = [Program(parse_ssa(part, lineno)) for part, lineno in parts]
 
-    ax = plot_eval(
+    plot_eval(
         programs,
         x_domain=ns.domain,
         steps=ns.steps,

@@ -1,30 +1,24 @@
 from __future__ import annotations
 
-import ast
 import sys
 import logging
 from argparse import ArgumentParser
 from dataclasses import dataclass
 from typing import TextIO, Callable
 
-from ffcc.diff import diff
 from ffcc.ir import IRNode
 
 from ffcc.cse import cse
 from ffcc.parse import parse_ssa
 from ffcc.print_llvm import print_llvm_func_for
 from ffcc.print import print_dag, print_ssa
-from ffcc.rewrite.instantiate import instantiate_pass
-from ffcc.rewrite.optimize_types import types
-from ffcc.rewrite.simplify import simp
-from ffcc.rewrite.approximate import approx
+from ffcc.rewrite import types, simp, approx
 
 passes = {
     "cse": cse,
     "simp": simp,
     "approx": approx,
     "types": types,
-    "instantiate": instantiate_pass,
 }
 
 
@@ -79,6 +73,8 @@ class Main:
     verbose: bool = False
     log_to_out: bool = False
 
+    print_between_passes: bool = False
+
     @classmethod
     def from_cli(cls, cli: list[str]) -> Main:
         parser = ArgumentParser(prog="ffcc")
@@ -101,6 +97,9 @@ class Main:
         )
         parser.add_argument(
             "-f", "--format", help="output format", default="ssa", choices=formatter
+        )
+        parser.add_argument(
+            "--print-between-passes", help="Print IR between passes", action="store_true"
         )
         parser.add_argument(
             "--split-input-file",
@@ -134,6 +133,7 @@ class Main:
             split_on=ns.split_on,
             verbose=ns.verbose,
             log_to_out=ns.log_to_out,
+            print_between_passes=ns.print_between_passes,
         )
 
     def apply(self):
@@ -150,13 +150,23 @@ class Main:
         else:
             parts = [(self.input.read(), 1)]
 
+        print_split = False
+
         for i, (part, lineno) in enumerate(parts):
             ir = parse_ssa(part, lineno)
-            for p in self.passes:
+            for p_i, p in enumerate(self.passes):
+                if self.print_between_passes and p_i > 0:
+                    if print_split:
+                        self.out.write(f"\n// {self.split_on}\n\n")
+                    self.out_formatter(ir, self.out)
+                    print_split = True
+
                 ir = p(ir)
-            self.out_formatter(ir, self.out)
-            if i < len(parts) - 1:
+
+            if print_split:
                 self.out.write(f"\n// {self.split_on}\n\n")
+            self.out_formatter(ir, self.out)
+            print_split = True
 
     def __call__(self):
         self.apply()

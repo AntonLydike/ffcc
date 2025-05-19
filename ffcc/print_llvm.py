@@ -201,18 +201,23 @@ def print_llvm_func_for(
                     ins(
                         r,
                         "call",
-                        _t(t),
+                        t,
                         f"@llvm.pow.{str(base.type)}(",
-                        _t(base.type),
+                        base.type,
                         base,
                         ",",
-                        _t(exp.type),
+                        exp.type,
                         exp,
                         ")",
                     )
                     external_funcs.add(
                         f"declare {_t(t)} @llvm.pow.{str(base.type)}({_t(base.type)}, {_t(exp.type)})"
                     )
+            case MathNode(kind=Kind.Log2, result=r, args=(a,), type=FloatType() as ft):
+                a = _ensure_type(a, ft)
+                intr = f"@llvm.log2.{str(ft)}"
+                ins(r,"call", ft, f'{intr}(', a.type, a, ')')
+                external_funcs.add(f"declare {_t(ft)} {intr}({_t(a.type)})")
             case MathNode(kind=k, result=r):
                 ins(r, "unknown op", k.name.lower(), res_t=r.type)
             case BitCastOperator(direction=d, args=(a,), result=r, type=ty):

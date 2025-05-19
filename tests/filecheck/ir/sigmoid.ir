@@ -3,7 +3,7 @@
 
 %x = var x : f32
 %one = constant 1 : f32
-%e = constant 2.718281828459045 : f32
+%e = constant e : f32
 %mx = negate %x : f32
 %exp = pow %e, %mx : f32
 %one_p_ex = add %one, %exp : f32

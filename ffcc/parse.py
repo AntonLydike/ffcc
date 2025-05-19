@@ -2,6 +2,8 @@ import re
 from ast import literal_eval
 from logging import getLogger
 
+import math
+
 LOGGER = getLogger(__name__)
 
 from ffcc.ir import (
@@ -22,6 +24,14 @@ from ffcc.ir import (
 
 NAME_TO_KIND = {kind.name.lower(): kind for kind in Kind}
 
+
+MATH_CONSTANTS = {
+    'e': math.e,
+    'pi': math.pi,
+    'nan': math.nan,
+    'inf': math.inf,
+    '-inf': -math.inf,
+}
 
 def parse_ssa(text: str, baselineno: int = 0) -> IRNode:
     values: dict[str, Value] = dict()
@@ -134,17 +144,16 @@ def parse_ssa(text: str, baselineno: int = 0) -> IRNode:
             raise ParseError(lineno, line, "Could not parse operation", 0)
         op.result.name = valname[1:]
         values[valname] = op.result
-        ops.append(op)
-    for op in ops[:-1]:
+        ops.append((op, lineno, line))
+    for op, lineno, line in ops[:-1]:
         if not op.result.uses:
-            LOGGER.warning(f"Dead operation result: %{op.result.name}")
-    return ops[-1]
+            LOGGER.warning(f"Dead operation on line {lineno}: {line}")
+    return ops[-1][0]
 
 
 def _split_line(line: str) -> list[tuple[int, str]]:
     bits = []
     start = 0
-    i = 0
     for i, c in enumerate(line):
         if c in "=():,":
             if i > start:
@@ -173,6 +182,8 @@ def _parse_val(
 
 
 def _parse_constant(lineno: int, line: str, pos: int, text: str) -> int | float:
+    if text in MATH_CONSTANTS:
+        return MATH_CONSTANTS[text]
     cst = re.fullmatch(r"-?\d+(\.\d+)?([eE][+-]\d+)?", text)
     if cst is None:
         raise ParseError(lineno, line, "Expected int or float constant", pos)

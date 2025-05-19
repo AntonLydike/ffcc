@@ -11,6 +11,8 @@ from ffcc.ir import (
 )
 from ffcc.rewrite.rewriter import Rewriter
 
+SIGMA_HINT = 0.0450466
+
 L_vals = {
     16: 10,
     32: 23,
@@ -50,7 +52,7 @@ def insert_approximations(node: IRNode) -> IRNode | None:
             r_type = r.type
             Linv = ConstantNode(2 ** -L_vals[r_type.width], x_type)
             mB = ConstantNode(-B_vals[r_type.width], x_type)
-            sigma = TunableNode("sigma", 0.45066, r_type)
+            sigma = TunableNode("sigma", SIGMA_HINT, r_type)
             # mb = -B
             # Linv = 1/L
             # return -B + σ + 1/L * Ix
@@ -69,7 +71,7 @@ def insert_approximations(node: IRNode) -> IRNode | None:
             r_type = r.type
             L = ConstantNode(2 ** L_vals[r_type.width], x_type)
             B = ConstantNode(B_vals[r_type.width], x_type)
-            sigma = TunableNode("sigma", 0.45066, r_type)
+            sigma = TunableNode("sigma", SIGMA_HINT, r_type)
             return BitCastOperator(
                 direction="i2f",
                 value=(L * (B - sigma))
@@ -79,9 +81,9 @@ def insert_approximations(node: IRNode) -> IRNode | None:
         case MathNode(kind=Kind.Div, argops=(a, x), result=r) if has_var(x):
             x_type = x.type
             r_type = r.type
-            twoL = ConstantNode(2 * (2 ** L_vals[r_type.width]), x_type)
+            twoL = ConstantNode(2 * (2 ** (L_vals[r_type.width])), x_type)
             B = ConstantNode(B_vals[r_type.width], x_type)
-            sigma = TunableNode("sigma", 0.45066, r_type)
+            sigma = TunableNode("sigma", SIGMA_HINT, r_type)
             return a * BitCastOperator(
                 direction="i2f", value=twoL * (B - sigma) - BitCastOperator(x, "f2i")
             )

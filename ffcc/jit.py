@@ -95,11 +95,13 @@ class Program:
     def eval_on_domain(
         self,
         domain: np.ndarray,
-        tunables: Sequence[float | int],
+        tunables: Sequence[float | int] = None,
         result: np.ndarray | None = None,
     ) -> np.ndarray:
         if result is None:
             result = np.zeros_like(domain)
+        if tunables is None:
+            tunables = self.initial_tune
         if len(tunables) != len(self.tunables):
             raise ValueError("Got the wrong number of tunables values")
         if self.dll.eval_on_domain(result, domain, domain.size, *tunables) != 0:
@@ -131,6 +133,8 @@ class Program:
         return result
 
     def __call__(self, x: float, *tunables: float | int) -> float:
+        if len(tunables) == 0:
+            tunables = self.initial_tune
         if len(tunables) != len(self.tunables):
             raise ValueError("Got the wrong number of tunables values")
         return self.dll.my_func(x, *tunables)
