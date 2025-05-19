@@ -9,7 +9,7 @@ from ffcc.ir import (
     IntType,
     VarNode,
 )
-from ffcc.rewrite.rewriter import Rewriter
+from ffcc.opt.rewriter import Rewriter
 
 SIGMA_HINT = 0.0450466
 

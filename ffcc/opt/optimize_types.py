@@ -9,7 +9,7 @@ from ffcc.ir import (
 )
 from math import log2
 
-from ffcc.rewrite.rewriter import Rewriter, RewriteResultModifiedOp
+from ffcc.opt.rewriter import Rewriter, RewriteResultModifiedOp
 
 
 def is_power_of_two(x: int | float) -> bool:

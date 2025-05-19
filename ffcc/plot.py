@@ -9,8 +9,8 @@ import math
 import sys
 
 from ffcc.jit import Program
-from ffcc.rewrite.simplify import simp
-from ffcc.rewrite.approximate import approx
+from ffcc.opt.simplify import simp
+from ffcc.opt.approximate import approx
 from ffcc.cse import cse
 from ffcc.main import open_source, config_log
 import time

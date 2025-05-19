@@ -14,7 +14,7 @@ import math
 import struct
 import ctypes
 
-from ffcc.rewrite.rewriter import Rewriter
+from ffcc.opt.rewriter import Rewriter
 
 
 def simplify_div_exp(node: IRNode) -> IRNode | None:

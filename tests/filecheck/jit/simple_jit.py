@@ -5,17 +5,9 @@ from ffcc.jit import Program
 
 f32 = FloatType(32)
 
-node = MathNode(
-    VarNode('x', f32),
-    MathNode(
-        ConstantNode(3.14159, f32),
-        TunableNode('sigma', 1, f32),
-        kind=Kind.Mul,
-        res_type=f32,
-    ),
-    kind=Kind.Add,
-    res_type=f32
-)
+x = VarNode('x', f32)
+t = TunableNode('t', 1, f32)
+node = x + (t * ConstantNode(3.14159, f32))
 
 p = Program(node)
 

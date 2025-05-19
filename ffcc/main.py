@@ -12,7 +12,7 @@ from ffcc.cse import cse
 from ffcc.parse import parse_ssa
 from ffcc.print_llvm import print_llvm_func_for
 from ffcc.print import print_dag, print_ssa
-from ffcc.rewrite import types, simp, approx
+from ffcc.opt import types, simp, approx
 
 passes = {
     "cse": cse,
@@ -154,19 +154,18 @@ class Main:
 
         for i, (part, lineno) in enumerate(parts):
             ir = parse_ssa(part, lineno)
+
+            if i > 0:
+                self.out.write(f"\n// {self.split_on}\n\n")
+
             for p_i, p in enumerate(self.passes):
                 if self.print_between_passes and p_i > 0:
-                    if print_split:
-                        self.out.write(f"\n// {self.split_on}\n\n")
                     self.out_formatter(ir, self.out)
-                    print_split = True
+                    self.out.write(f"\n// {self.split_on}\n\n")
 
                 ir = p(ir)
 
-            if print_split:
-                self.out.write(f"\n// {self.split_on}\n\n")
             self.out_formatter(ir, self.out)
-            print_split = True
 
     def __call__(self):
         self.apply()

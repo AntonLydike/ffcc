@@ -5,7 +5,7 @@ from ffcc.cse import cse
 from ffcc.ir import VarNode, ConstantNode, FloatType, IRNode, MathNode, Kind
 from ffcc.diff import diff
 from ffcc.print import print_dag
-from ffcc.rewrite.simplify import simp
+from ffcc.opt import simp
 
 def show(dag: IRNode):
     print(print_dag(simp(cse(dag))))
