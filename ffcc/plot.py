@@ -1,5 +1,4 @@
 import argparse
-from email.policy import default
 from typing import Sequence
 
 import matplotlib.pyplot as plt
@@ -9,68 +8,11 @@ import math
 import sys
 
 from ffcc.jit import Program
-from ffcc.opt.simplify import simp
-from ffcc.opt.approximate import approx
-from ffcc.cse import cse
 from ffcc.main import open_source, config_log
-import time
 
 from ffcc.parse import parse_ssa
 
 matplotlib.use("TkAgg")
-
-
-# TODO: unused -- implement this
-def plot_error_surface(
-    program: Program,
-    zlim=1,
-    resolution=500,
-    err_samples=10_000_000,
-):
-
-    domain = np.linspace(1, 4, err_samples)
-    ref = domain ** (-0.5)
-    tunables = p.initial_tune
-
-    print("Plotting data...")
-    print("Evaluating {} spots".format(err_samples * resolution ** len(tunables)))
-    start_time = time.time()
-    error_grid = p.sweep_tunables(
-        ref,
-        domain,
-        [(t * 0.9, t * 1.1) for t in tunables],
-        [resolution] * len(tunables),
-    )
-    print("Took {}s".format(time.time() - start_time))
-
-    # clamp to zlim
-    error_grid[error_grid > zlim] = np.nan
-
-    fig = plt.figure(figsize=(5, 5))
-    ax = fig.add_subplot(111, projection="3d")
-    x, y = (np.linspace(t - 0.4, t + 0.4, resolution) for t in tunables)
-
-    surf = ax.plot_surface(x, y, error_grid, cmap="viridis", zorder=10)
-
-    ## Add slice along sigma axis (fixed threehalfs)
-    # err_sigma_slice = [limit(max_relative_error(s, threehalfs_ref, num_points=err_sampling)) for s in sigma_vals]
-    # ax.plot(sigma_vals, [threehalfs_ref] * resolution[0], err_sigma_slice, color='darkblue', linewidth=2, alpha=0.8, label=f'$\\text{{threehalfs}}={threehalfs_ref}$', zorder=20)
-
-    ## Add slice along threehalfs axis (fixed sigma)
-    # err_threehalfs_slice = [limit(max_relative_error(sigma_ref, t, num_points=err_sampling)) for t in threehalfs_vals]
-    # ax.plot([sigma_ref] * resolution[1], threehalfs_vals, err_threehalfs_slice, color='orange', linewidth=2, alpha=0.8, label=f'$\\sigma={sigma_ref}$', zorder=20)
-
-    ax.set_xlabel(p.tunables[0].name)
-    ax.set_ylabel(p.tunables[1].name)
-    ax.set_zlabel("Max Relative Error")
-    ax.set_zlim([np.min(error_grid), zlim])
-    # ax.legend()
-
-    fig.colorbar(surf, shrink=0.5, aspect=10)
-    plt.tight_layout()
-    # plt.savefig("error_surface.pdf", format='pdf')
-
-    plt.show()
 
 
 def plot_eval(

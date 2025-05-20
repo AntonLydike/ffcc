@@ -264,7 +264,6 @@ def constant_fold(node: IRNode) -> IRNode | None:
         # ∘ is any operation, c4 = c1 * c2, c5 = c1 * c3
         case MathNode(
             kind=Kind.Mul,
-            type=t1,
             argops=(
                 ConstantLikeNode(value=v1) as c1,
                 MathNode(

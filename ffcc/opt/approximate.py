@@ -1,12 +1,10 @@
 from ffcc.ir import (
     IRNode,
     MathNode,
-    FloatType,
     Kind,
     BitCastOperator,
     TunableNode,
     ConstantNode,
-    IntType,
     VarNode,
 )
 from ffcc.opt.rewriter import Rewriter

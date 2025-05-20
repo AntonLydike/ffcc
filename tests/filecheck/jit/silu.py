@@ -3,10 +3,8 @@ import sys
 
 from ffcc.parse import parse_ssa
 from ffcc.jit import Program
-from ffcc.tune import GridSearch, GreedyDescent
-from ffcc.helper import duration, print_progress
-
-import time
+from ffcc.tune import GreedyDescent
+from ffcc.helper import duration
 
 import numpy as np
 
