@@ -26,12 +26,13 @@ NAME_TO_KIND = {kind.name.lower(): kind for kind in Kind}
 
 
 MATH_CONSTANTS = {
-    'e': math.e,
-    'pi': math.pi,
-    'nan': math.nan,
-    'inf': math.inf,
-    '-inf': -math.inf,
+    "e": math.e,
+    "pi": math.pi,
+    "nan": math.nan,
+    "inf": math.inf,
+    "-inf": -math.inf,
 }
+
 
 def parse_ssa(text: str, baselineno: int = 0) -> IRNode:
     values: dict[str, Value] = dict()

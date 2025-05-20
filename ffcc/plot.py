@@ -80,6 +80,7 @@ def plot_eval(
     logx: bool = False,
     logy: bool = False,
     names: tuple[str, ...] = None,
+    tune: tuple[int | float, ...] = None,
 ) -> plt.Axes:
 
     if logx:
@@ -104,7 +105,7 @@ def plot_eval(
     linestyles = ("-", "--", ":")
 
     for p, name, i in zip(programs, names, range(len(names)), strict=True):
-        p.eval_on_domain(domain, result=result)
+        p.eval_on_domain(domain, tunables=tune, result=result)
 
         ax.plot(
             domain,

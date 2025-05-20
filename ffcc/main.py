@@ -99,7 +99,9 @@ class Main:
             "-f", "--format", help="output format", default="ssa", choices=formatter
         )
         parser.add_argument(
-            "--print-between-passes", help="Print IR between passes", action="store_true"
+            "--print-between-passes",
+            help="Print IR between passes",
+            action="store_true",
         )
         parser.add_argument(
             "--split-input-file",
@@ -149,8 +151,6 @@ class Main:
                 lineno += part.count("\n")
         else:
             parts = [(self.input.read(), 1)]
-
-        print_split = False
 
         for i, (part, lineno) in enumerate(parts):
             ir = parse_ssa(part, lineno)

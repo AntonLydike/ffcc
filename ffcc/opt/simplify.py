@@ -28,21 +28,11 @@ def simplify_div_exp(node: IRNode) -> IRNode | None:
                 lhs,
                 MathNode(
                     kind=Kind.Pow,
-                    args=(base, exp),
-                ) as exp_node,
-            ),
-        ) as div:
-            return MathNode(
-                lhs,
-                MathNode(
-                    base,
-                    MathNode(exp, kind=Kind.Negate, res_type=exp.type),
-                    kind=Kind.Pow,
-                    res_type=exp_node.result.type,
+                    argops=(base, exp),
                 ),
-                kind=Kind.Mul,
-                res_type=div.result.type,
-            )
+            ),
+        ):
+            return lhs * (base ** (-exp))
 
 
 def div_by_constant(node: IRNode) -> IRNode | None:

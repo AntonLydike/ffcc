@@ -216,7 +216,7 @@ def print_llvm_func_for(
             case MathNode(kind=Kind.Log2, result=r, args=(a,), type=FloatType() as ft):
                 a = _ensure_type(a, ft)
                 intr = f"@llvm.log2.{str(ft)}"
-                ins(r,"call", ft, f'{intr}(', a.type, a, ')')
+                ins(r, "call", ft, f"{intr}(", a.type, a, ")")
                 external_funcs.add(f"declare {_t(ft)} {intr}({_t(a.type)})")
             case MathNode(kind=k, result=r):
                 ins(r, "unknown op", k.name.lower(), res_t=r.type)

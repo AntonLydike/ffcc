@@ -47,12 +47,23 @@ int eval_on_domain(float* restrict out, float* restrict domain, int64_t size{sig
 float max_relative_error(float* restrict reference, float* restrict domain, int64_t size{sigma_signature})
 {{
     float max_rel_err = -INFINITY;
-
+    
     {omp_pragma}
-    for (int64_t i = 0; i < size; i++) {{
-        float res = my_func(domain[i]{sigma_args});
-        float rel_err = fabsf((res - reference[i]) / reference[i]);
-        max_rel_err = fmax(max_rel_err, rel_err);
+    for (int64_t sec = 0; sec < size; sec += 1000) {{
+        
+        float local_max = -INFINITY;
+        int64_t end = fmin(size, sec + 1000);
+        
+        for (int64_t i = sec; i < end; i++) {{
+            float res = my_func(domain[i]{sigma_args});
+            float rel_err = fabsf((res - reference[i]) / reference[i]);
+            local_max = fmax(local_max, rel_err);
+        }}
+        
+        {omp_critical}
+        {{
+            max_rel_err = fmax(max_rel_err, local_max);
+        }}
     }}
 
     return max_rel_err;
@@ -79,8 +90,8 @@ class Program:
     variables: list[VarNode]
     dll: ctypes.CDLL
 
-    def __init__(self, node: IRNode):
-        dll, args, tunes = instantiate_node_as_jit(node)
+    def __init__(self, node: IRNode, num_threads: int = 4):
+        dll, args, tunes = instantiate_node_as_jit(node, omp_threads=num_threads)
 
         self.variables = [a.owner for a in args]
         self.dll = dll
@@ -109,9 +120,14 @@ class Program:
         return result
 
     def max_relative_error(
-        self, reference: np.ndarray, domain: np.ndarray, tunables: Sequence[float]
+        self,
+        reference: np.ndarray,
+        domain: np.ndarray,
+        tunables: Sequence[float] = None,
     ) -> float:
         assert reference.size == domain.size
+        if tunables is None:
+            tunables = self.initial_tune
         if len(tunables) != len(self.tunables):
             raise ValueError("Got the wrong number of tunables values")
         return self.dll.max_relative_error(reference, domain, domain.size, *tunables)
@@ -278,6 +294,7 @@ def _build_harness(
             if omp_threads > 1
             else ""
         ),
+        omp_critical="#pragma omp critical" if omp_threads > 1 else "",
         omp_pragma_sweep=(
             f"#pragma omp parallel for num_threads({omp_threads})"
             if omp_threads > 1 and tunables
