@@ -146,7 +146,7 @@ def print_llvm_func_for(
         if val_t == ty:
             return val
         if val_t.width != ty.width:
-            raise ValueError("Cannot handle diverging bitwidths yet")
+            raise ValueError("Cannot handle diverging bitwidths yet", str(val_t), str(ty))
         if isinstance(ty, FloatType):
             res = Value(ty, val.owner, "cast")
             ins(res, "sitofp", val_t, val, "to", ty)

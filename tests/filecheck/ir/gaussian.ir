@@ -1,0 +1,5 @@
+%x = var x : f32
+%e = constant e : f32
+%xs = mul %x, %x : f32
+%mxs = negate %xs : f32
+%r = pow %e, %mxs : f32

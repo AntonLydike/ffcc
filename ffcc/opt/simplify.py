@@ -1,3 +1,4 @@
+from ffcc.helper import prod
 from ffcc.ir import (
     IRNode,
     MathNode,
@@ -5,16 +6,27 @@ from ffcc.ir import (
     ConstantNode,
     FloatType,
     IntType,
-    CastOperator,
-    BitCastOperator,
     ConstantLikeNode,
     FoldableNode,
 )
-import math
-import struct
-import ctypes
 
 from ffcc.opt.rewriter import Rewriter
+
+
+def factors(n: IRNode) -> list[IRNode]:
+    """
+    Given a mul, find all factors in it
+    """
+    if not isinstance(n, MathNode) or not n.kind == Kind.Mul:
+        return [n]
+
+    f = []
+    for arg in n.argops:
+        if isinstance(arg, MathNode) and arg.kind == Kind.Mul:
+            f.extend(factors(arg))
+        else:
+            f.append(arg)
+    return f
 
 
 def simplify_div_exp(node: IRNode) -> IRNode | None:
@@ -33,6 +45,45 @@ def simplify_div_exp(node: IRNode) -> IRNode | None:
             ),
         ):
             return lhs * (base ** (-exp))
+
+
+def cancel_div(node: IRNode) -> IRNode | None:
+    # check for div with
+    if (
+        not isinstance(node, MathNode)
+        or not node.kind == Kind.Div
+    ):
+        return None
+
+    top = factors(node.argops[0])
+    btm = factors(node.argops[1])
+
+    # simple cancellation
+    for fac in tuple(btm):
+        if fac in top:
+            top.remove(fac)
+            btm.remove(fac)
+
+    for b in btm:
+        if not isinstance(b, MathNode) or not b.kind == Kind.Pow:
+            continue
+        for t in top:
+            if not isinstance(t, MathNode) or not t.kind == Kind.Pow:
+                continue
+            if t.argops[0] is not b.argops[0]:
+                continue
+            btm.remove(b)
+            top.remove(t)
+            top.append(MathNode(
+                t.argops[0],
+                t.argops[1] - b.argops[1],
+                kind=Kind.Pow,
+                res_type=t.type
+            ))
+
+    cst1 = ConstantNode(1, node.type)
+
+    return prod(top, cst1) / prod(btm, cst1)
 
 
 def div_by_constant(node: IRNode) -> IRNode | None:
@@ -318,6 +369,7 @@ simp = Rewriter(
         div_by_constant,
         symmetry,
         arith,
+        cancel_div,
         constant_shoving,
     )
 )

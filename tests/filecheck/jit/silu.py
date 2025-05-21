@@ -16,11 +16,27 @@ x = np.linspace(-2, 6, num_elems, dtype=np.float32)
 expected =  x / (1 + np.exp(-x))
 
 
-p = Program(node := parse_ssa("""%sigma = tunable 's2' = 2129950675 : i32
-%one = tunable 'one' = 1 : f32
-%sigma1 = tunable 's1' = 1064975338 : i32
-%0 = tunable 'L' = 12102203.161561485 : f32
-%x = var 'x' : f32
+#p = Program(node := parse_ssa("""%sigma = tunable 's2' = 2129950675 : i32
+#%one = tunable 'one' = 1 : f32
+#%sigma1 = tunable 's1' = 1064975338 : i32
+#%0 = tunable 'L' = 12102203.161561485 : f32
+#%x = var 'x' : f32
+#%mx = negate %x : f32
+#%1 = mul %0, %mx : f32
+#%2 = add %sigma1, %1 : i32
+#%3 = bitcast i2f %2 to f32
+#%one_p_ex = add %one, %3 : f32
+#%4 = bitcast f2i %one_p_ex to i32
+#%5 = sub %sigma, %4 : i32
+#%6 = bitcast i2f %5 to f32
+#%r = mul %x, %6 : f32
+#"""), num_threads=4)
+
+p = Program(node := parse_ssa("""%x = var 'x' : f32
+%sigma = tunable 's2' = 2129881071 : i32
+%one = tunable 'one' = 1.0119495391845703 : f32
+%sigma1 = tunable 's1' = 1065039594 : i32
+%0 = tunable 'L' = 12000943.0 : f32
 %mx = negate %x : f32
 %1 = mul %0, %mx : f32
 %2 = add %sigma1, %1 : i32
@@ -28,10 +44,17 @@ p = Program(node := parse_ssa("""%sigma = tunable 's2' = 2129950675 : i32
 %one_p_ex = add %one, %3 : f32
 %4 = bitcast f2i %one_p_ex to i32
 %5 = sub %sigma, %4 : i32
-%6 = bitcast i2f %5 to f32
-%r = mul %x, %6 : f32
-"""), num_threads=4)
+%y = bitcast i2f %5 to f32
 
+// x * y * y
+%_0 = mul %one_p_ex, %y : f32
+%_1 = mul %_0, %y : f32
+
+// 2 * y
+%c2 = tunable two = 2 : f32
+%_2 = mul %c2, %y : f32
+%yn = sub %_2, %_1 : f32
+%r = mul %x, %yn : f32"""))
 
 def bench_impl(impl: Program, domain: np.ndarray):
     result = np.zeros_like(domain)
@@ -89,10 +112,18 @@ print("max rel error with initial tune: {}".format(p.max_relative_error(expected
 
 print("Greedy descending...")
 # CHECK-LABEL: Greedy descending
-desc = GreedyDescent(p, x, expected, 128, 512, 1, 20)
+desc = GreedyDescent(p, x, expected, 128, 512, 1, 20000)
 greedy_tune = desc.run(progress=sys.stdout.isatty())
 
 print(f"best found tune: {greedy_tune}")
 # CHECK: best found tune: (12112443.0, 1.001220703125, 2129948115, 1064977898)
 print("max rel err: {}".format(p.max_relative_error(expected, x, greedy_tune)))
 # CHECK: max rel err: 0.07848206907510757
+
+print_ir = True
+# print the IR
+if print_ir:
+    from ffcc.print import print_ssa
+    for tune, new_val in zip(p.tunables, greedy_tune):
+        tune.hint = new_val
+    print_ssa(node)

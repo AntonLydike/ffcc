@@ -36,11 +36,11 @@ def diff(node: IRNode, var: VarNode) -> IRNode:
             x = x.copy()
             return a * (x ** (a - ConstantNode(1, t)))
         # a+b -> a'+b' (same for sub)
-        case MathNode(kind=k, argops=(a, b), type=t) if k in (Kind.Add, Kind.Sub):
+        case MathNode(kind=k, argops=(a, b)) if k in (Kind.Add, Kind.Sub):
             return diff(a, var) + diff(b, var)
         # product rule:
         # (ab)' -> a'b + ab'
-        case MathNode(kind=Kind.Mul, argops=(a, b), type=t):
+        case MathNode(kind=Kind.Mul, argops=(a, b)):
             return diff(b, var) * b.copy() + diff(a, var) * a.copy()
         # quotient rule:
         # (a/b)' -> (a'b - ab')/(b^2)

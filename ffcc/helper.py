@@ -1,5 +1,7 @@
 import struct
 import ctypes
+from collections.abc import Sequence
+from typing import Iterable
 
 import math
 import time
@@ -133,3 +135,12 @@ def print_progress(current: int, total: int, start_time: float, message: str = "
         flush=True,
         end="",
     )
+
+
+def prod(iter: Sequence, base = 1):
+    if not iter:
+        return base
+    base = iter[0]
+    for x in iter[1:]:
+        base *= x
+    return base

@@ -156,6 +156,14 @@ class IRNode:
         if reverse:
             yield self
 
+    def subs(self, replace: dict[IRNode, IRNode]) -> IRNode:
+        if self in replace:
+            return replace[self]
+
+        self.args = tuple(op.subs(replace).result for op in self.argops)
+
+        return self
+
     def __contains__(self, item: IRNode):
         if self is item:
             return True

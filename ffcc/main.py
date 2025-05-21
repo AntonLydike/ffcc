@@ -9,17 +9,13 @@ from typing import TextIO, Callable
 from ffcc.ir import IRNode
 
 from ffcc.cse import cse
+from ffcc.newton import newton
 from ffcc.parse import parse_ssa
 from ffcc.print_llvm import print_llvm_func_for
 from ffcc.print import print_dag, print_ssa
 from ffcc.opt import types, simp, approx
 
-passes = {
-    "cse": cse,
-    "simp": simp,
-    "approx": approx,
-    "types": types,
-}
+passes = {"cse": cse, "simp": simp, "approx": approx, "types": types, "newton": newton}
 
 
 def open_source(dash: TextIO) -> Callable[[str], TextIO]:
