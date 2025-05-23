@@ -161,7 +161,6 @@ class SMTSynthesizer:
 
         self.initial_delta = 0.05
         self.threshold = 1e-4
-        self.early_stop = 20
         self.max_steps = 1000
         self.epsilon = 1e-8
         self.sample_num = sample_num
@@ -260,21 +259,18 @@ class SMTSynthesizer:
 
     
     def synthesize(self):
-        delta_change = 1
         delta = self.initial_delta
         io_pairs = self.gen_initial_io_pairs()
         step = 0
         best_delta = 1
+        lower_bound = 0
         best_tunable = None
 
-        delta_unchanged_steps = 0 
         while True:
-            print("---- Step %d ----"%step)
-            print(io_pairs)
             tunable = self.sat(io_pairs, delta)
             if not tunable:
                 new_delta = (best_delta + delta) / 2
-                print("UNSAT")
+                lower_bound = delta
             else:
                 new_io_pair, loss = self.find_conflict(tunable, delta)
                 if new_io_pair:
@@ -283,21 +279,17 @@ class SMTSynthesizer:
                 else:
                     best_delta = delta
                     best_tunable = tunable
-                    new_delta = 0.5 * delta
-                print("io_pairs      : ", len(io_pairs))
-                print("loss          :", loss)
-            delta_change = delta - new_delta
+                    new_delta = (delta + lower_bound) / 2
+            approx_error_bound = best_delta - lower_bound
+            print("---- Step %d ----"%step)
+            print("io_pairs      : ", len(io_pairs))
             print("delta         :", delta)
             print("best delta    :", best_delta)
-            print("delta change  :", delta_change)
-            print("unchange steps:", delta_unchanged_steps)
+            print("lower bound   :", lower_bound)
+            print("error bound   :", approx_error_bound)
             print("Best Tunable  :", best_tunable)
-            if np.abs(delta_change) < self.threshold:
-                delta_unchanged_steps += 1
-                if delta_unchanged_steps >= self.early_stop:
-                    break
-            else:
-                delta_unchanged_steps = 0
+            if np.abs(approx_error_bound) < self.threshold:
+                break
             delta = new_delta
             step += 1
             if step == self.max_steps:
@@ -380,6 +372,6 @@ def test_sigmoid(low = -5, high = 5, sample_num = 10000):
     print("Synth loss    :", syn_loss)
 
 if __name__ == "__main__":
-  # test_qsqrt()
+    test_qsqrt()
     test_sigmoid()
 
