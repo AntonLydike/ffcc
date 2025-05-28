@@ -83,6 +83,9 @@ def cancel_div(node: IRNode) -> IRNode | None:
 
     cst1 = ConstantNode(1, node.type)
 
+    if top == factors(node.argops[0]) and btm == factors(node.argops[1]):
+        return None
+
     return prod(top, cst1) / prod(btm, cst1)
 
 
@@ -264,17 +267,17 @@ def constant_shoving(node: IRNode) -> IRNode | None:
             kind=k1,
             argops=(
                 x,
-                MathNode(kind=k2, argops=(a, b), type=t2),
+                MathNode(kind=k2, argops=(a, b)),
             )
             | (
-                MathNode(kind=k2, argops=(a, b), type=t2),
+                MathNode(kind=k2, argops=(a, b)),
                 x,
             ),
             type=t,
         ) if (
             k1 == k2
             and not isinstance(x, ConstantLikeNode)
-            and any(isinstance(x, ConstantLikeNode) for x in (a, b))
+            and any(isinstance(ab, ConstantLikeNode) for ab in (a, b))
             and k1 in (Kind.Mul, Kind.Add)
         ):
             cst, ncst = (a, b) if isinstance(a, ConstantLikeNode) else (b, a)

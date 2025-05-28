@@ -46,6 +46,11 @@ print('eval_on_domain [1, 2] -> {}'.format(results))
 # relative error:
 actual_results = np.ones_like(domain)*2
 print(
-    'max_rel_err [1, 2] = {}'.format(p.max_relative_error(actual_results, domain, (0.1, )))
+    'max_rel_err [1, 2] = {}'.format(p.max_relative_error(actual_results, domain, tunables=(0.1, )))
 )
 # CHECK-NEXT: max_rel_err [1, 2] = 0.3429204821586609
+
+print(
+    'max_rel_err [1, 2], eps = 1 = {}'.format(p.max_relative_error(actual_results, domain, tunables=(0.1, ), epsilon=1))
+)
+# CHECK-NEXT: max_rel_err [1, 2], eps = 1 = 0.22861365973949432

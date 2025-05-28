@@ -88,43 +88,23 @@ initial_tune = p.initial_tune
 print("max rel error with initial tune (ε=0): {}".format(p.max_relative_error(expected, x, 0.0, initial_tune)))
 print("max rel error with initial tune (ε=0.1): {}".format(p.max_relative_error(expected, x, 0.5, initial_tune)))
 print("max rel error with initial tune (ε=1): {}".format(p.max_relative_error(expected, x, 1.0, initial_tune)))
-# CHECK: max rel error with initial tune: 0.07978265732526779
-
-#bench_impl(p, x)
-
-#bench_max_rel_err(p, x, expected)
-
-### GRID SEARCH:
-#params = GridSearch(p.tunables, 100)
-#count = len(params)
-#
-#def run_tune(t: tuple[int, tuple[int | float, ...]]):
-#    i, tune = t
-#    if i % 100 == 52:
-#        print_progress(i, count, t0)
-#    f = p.max_relative_error(expected, x, tune)
-#    return f
-#
-#t0 = time.time()
-#i, best_tune = min(enumerate(params), key=run_tune)
-#best_tune = (12127291.0, 1.0, 2129950625, 1064975384)
-#print(f"best grid search tune: {best_tune}")
-#print("max rel error with best* tune:   {}".format(p.max_relative_error(expected, x, best_tune)))
-#print("* t&cs apply, no optimality guaranteed.")
+# CHECK: max rel error with initial tune (ε=0): 0.053504280745983124
+# CHECK: max rel error with initial tune (ε=0.1): 0.013524065725505352
+# CHECK: max rel error with initial tune (ε=1): 0.011155398562550545
 
 ### GREEDY DESCENT:
 
 print("Greedy descending...")
 # CHECK-LABEL: Greedy descending
-desc = GreedyDescent(p, x, expected, 128, 512, 1, 20000, epsilon=1.0)
+desc = GreedyDescent(p, x, expected, 128, 512, 1, 20, epsilon=1.0)
 greedy_tune = desc.run(progress=sys.stdout.isatty())
 
 print(f"best found tune: {greedy_tune}")
-# CHECK: best found tune: (12112443.0, 1.001220703125, 2129948115, 1064977898)
+# CHECK: best found tune: (12011183.0, 2.00244140625, 1.0107288360595703, 2129883631, 1065037034)
 print("max rel err: {}".format(p.max_relative_error(expected, x, 1.0, greedy_tune)))
-# CHECK: max rel err: 0.07848206907510757
+# CHECK: max rel err: 0.008350450545549393
 
-print_ir = True
+print_ir = sys.stdout.isatty()
 # print the IR
 if print_ir:
     from ffcc.print import print_ssa
