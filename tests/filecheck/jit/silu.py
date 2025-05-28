@@ -11,7 +11,7 @@ import numpy as np
 
 num_elems = 100_000
 
-x = np.linspace(-2, 6, num_elems, dtype=np.float32)
+x = np.linspace(-4, 4, num_elems, dtype=np.float32)
 # compute reference silu:
 expected =  x / (1 + np.exp(-x))
 
@@ -54,7 +54,8 @@ p = Program(node := parse_ssa("""%x = var 'x' : f32
 %c2 = tunable two = 2 : f32
 %_2 = mul %c2, %y : f32
 %yn = sub %_2, %_1 : f32
-%r = mul %x, %yn : f32"""))
+%r = mul %x, %yn : f32
+"""))
 
 def bench_impl(impl: Program, domain: np.ndarray):
     result = np.zeros_like(domain)
@@ -68,6 +69,7 @@ def bench_max_rel_err(impl: Program, domain: np.ndarray, expected: np.ndarray):
     import timeit
     iters, time = timeit.Timer(lambda : impl.max_relative_error(expected, domain)).autorange()
     print("{}/iter, {}/elem".format(duration(time/iters), duration(time / (iters * num_elems))))
+
 
 print("Tunables for silu:")
 # CHECK-LABEL: Tunables for silu:
@@ -83,7 +85,9 @@ for tune in p.tunables:
 # get initial values for tuning
 initial_tune = p.initial_tune
 
-print("max rel error with initial tune: {}".format(p.max_relative_error(expected, x, initial_tune)))
+print("max rel error with initial tune (ε=0): {}".format(p.max_relative_error(expected, x, 0.0, initial_tune)))
+print("max rel error with initial tune (ε=0.1): {}".format(p.max_relative_error(expected, x, 0.5, initial_tune)))
+print("max rel error with initial tune (ε=1): {}".format(p.max_relative_error(expected, x, 1.0, initial_tune)))
 # CHECK: max rel error with initial tune: 0.07978265732526779
 
 #bench_impl(p, x)
@@ -112,12 +116,12 @@ print("max rel error with initial tune: {}".format(p.max_relative_error(expected
 
 print("Greedy descending...")
 # CHECK-LABEL: Greedy descending
-desc = GreedyDescent(p, x, expected, 128, 512, 1, 20000)
+desc = GreedyDescent(p, x, expected, 128, 512, 1, 20000, epsilon=1.0)
 greedy_tune = desc.run(progress=sys.stdout.isatty())
 
 print(f"best found tune: {greedy_tune}")
 # CHECK: best found tune: (12112443.0, 1.001220703125, 2129948115, 1064977898)
-print("max rel err: {}".format(p.max_relative_error(expected, x, greedy_tune)))
+print("max rel err: {}".format(p.max_relative_error(expected, x, 1.0, greedy_tune)))
 # CHECK: max rel err: 0.07848206907510757
 
 print_ir = True

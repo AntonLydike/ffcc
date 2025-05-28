@@ -68,13 +68,15 @@ class GreedyDescent:
         float_step_size=512,
         min_float_step_size=10,
         max_steps: int = 100_000,
+        epsilon: float = 0.0,
     ):
         self.program = p
         self.domain = domain
         self.ref = ref
 
         self.current_conf = list(p.initial_tune)
-        self.current_err = p.max_relative_error(ref, domain, self.current_conf)
+        self.epsilon = epsilon
+        self.current_err = p.max_relative_error(ref, domain, epsilon, self.current_conf)
 
         self._int_step_size = int_step_size
         self._float_step = float_step_size
@@ -97,7 +99,7 @@ class GreedyDescent:
             cfgs.add(tune)
             if tune in self.seen:
                 continue
-            err = self.program.max_relative_error(self.ref, self.domain, tune)
+            err = self.program.max_relative_error(self.ref, self.domain, self.epsilon, tune)
             if err < best_err:
                 best_err = err
                 best_cfg = tune

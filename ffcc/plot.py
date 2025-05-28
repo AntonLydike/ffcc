@@ -22,6 +22,7 @@ def plot_eval(
     logx: bool = False,
     logy: bool = False,
     names: tuple[str, ...] = None,
+    hide_legend: bool = False,
     tune: tuple[int | float, ...] = None,
 ) -> plt.Axes:
 
@@ -60,7 +61,7 @@ def plot_eval(
     if logy:
         ax.set_yscale("log")
 
-    if len(programs) > 1:
+    if len(programs) > 1 and not hide_legend:
         ax.legend()
 
     return ax
@@ -112,6 +113,9 @@ def plot_main():
         help="Domain to evaluate on as two comma separated floats",
         type=parse_domain,
     )
+    parser.add_argument(
+        "--hide-legend", help="Hide the legend", action='store_true',
+    )
 
     ns = parser.parse_args()
 
@@ -135,6 +139,7 @@ def plot_main():
         logx=ns.logx,
         logy=ns.logy,
         names=ns.names,
+        hide_legend=ns.hide_legend,
     )
 
     if ns.gui:

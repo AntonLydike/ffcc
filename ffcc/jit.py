@@ -44,7 +44,7 @@ int eval_on_domain(float* restrict out, float* restrict domain, int64_t size{sig
     return 0;
 }}
 
-float max_relative_error(float* restrict reference, float* restrict domain, int64_t size{sigma_signature})
+float max_relative_error(float* restrict reference, float* restrict domain, int64_t size, float epsilon{sigma_signature})
 {{
     float max_rel_err = -INFINITY;
     
@@ -56,7 +56,8 @@ float max_relative_error(float* restrict reference, float* restrict domain, int6
         
         for (int64_t i = sec; i < end; i++) {{
             float res = my_func(domain[i]{sigma_args});
-            float rel_err = fabsf((res - reference[i]) / reference[i]);
+            
+            float rel_err = fabsf(res - reference[i]) / (fabsf(reference[i]) + epsilon);
             local_max = fmax(local_max, rel_err);
         }}
         
@@ -69,14 +70,14 @@ float max_relative_error(float* restrict reference, float* restrict domain, int6
     return max_rel_err;
 }}
 
-int64_t sweep_tunables(float* restrict output, float* restrict reference, float* restrict domain, int64_t size{sigma_signature}{sigma_signature_max}{sigma_signature_steps})
+int64_t sweep_tunables(float* restrict output, float* restrict reference, float* restrict domain, int64_t size, float epsilon{sigma_signature}{sigma_signature_max}{sigma_signature_steps})
 {{
     int64_t res_idx = 0;
     
     {omp_pragma_sweep}
 {sigma_loops}
 
-        output[res_idx++] = max_relative_error(reference, domain, size{sigma_sweep_args});
+        output[res_idx++] = max_relative_error(reference, domain, size, epsilon{sigma_sweep_args});
     
     {sigma_loops_end}
 
@@ -123,6 +124,7 @@ class Program:
         self,
         reference: np.ndarray,
         domain: np.ndarray,
+        epsilon: float = 0.0,
         tunables: Sequence[float] = None,
     ) -> float:
         assert reference.size == domain.size
@@ -130,7 +132,7 @@ class Program:
             tunables = self.initial_tune
         if len(tunables) != len(self.tunables):
             raise ValueError("Got the wrong number of tunables values")
-        return self.dll.max_relative_error(reference, domain, domain.size, *tunables)
+        return self.dll.max_relative_error(reference, domain, domain.size, epsilon, *tunables)
 
     def sweep_tunables(
         self,
@@ -236,6 +238,7 @@ def instantiate_node_as_jit(
         np.ctypeslib.ndpointer(input_t),  # reference
         np.ctypeslib.ndpointer(input_t),  # domain
         ctypes.c_int64,  # domain.size = referece.size
+        ctypes.c_float,  # epsilon
     ] + [
         t.type.ctype for t in tunes  # tunables
     ]  # *sigma
@@ -248,6 +251,7 @@ def instantiate_node_as_jit(
             np.ctypeslib.ndpointer(ctypes.c_float),  # output of sweep
             np.ctypeslib.ndpointer(input_t),  # reference
             np.ctypeslib.ndpointer(input_t),  # domain
+            ctypes.c_float,  # epsilon
             ctypes.c_int64,  # domain.size = referece.size
         ]
         + [t.type.ctype for t in tunes]

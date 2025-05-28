@@ -7,6 +7,7 @@ authors = [{name = "Anton Lydike", email="me@antonlydike.de"}]
 license = "AGPL-3.0-or-later"
 requires-python = ">=3.12"
 dependencies = [
+    "z3-solver>=4.15.0.0",
 ]
 
 [project.optional-dependencies]
