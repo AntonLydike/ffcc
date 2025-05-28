@@ -23,7 +23,7 @@
 // CHECK-NEXT: %5 = sub %sigma, %4 : i32
 // CHECK-NEXT: %6 = bitcast i2f %5 to f32
 
-// LLVM:      define float @my_func(float %x, i32 %sigma, i32 %sigma_1) {
+// LLVM:      define float @my_func(float %x, i32 %sigma_1, i32 %sigma) {
 // LLVM-NEXT:   %mx = fneg float %x
 // LLVM-NEXT:   %1 = fmul float 0x4167154760000000, %mx
 // LLVM-NEXT:   %cast = fptosi float %1 to i32

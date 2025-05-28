@@ -77,14 +77,15 @@ def _name(val: Value, names: dict[Value, str]) -> str:
     return name
 
 
-def _args_key(arg: Value) -> tuple[int, str]:
-    return 0 if isinstance(arg.owner, VarNode) else 1, arg.name
+def _args_key(arg: Value) -> tuple[int, str, float]:
+    is_arg = isinstance(arg.owner, VarNode)
+    return 0 if is_arg else 1, arg.name, 0 if is_arg else arg.owner.hint
 
 
 def print_llvm_func_for(
     node: IRNode, sym_name: str = "my_func", file: TextIOBase = sys.stdout
 ) -> tuple[list[Value], list[Value]]:
-    inputs: set[Value] = set()
+    inputs_set: set[Value] = set()
 
     names: dict[Value, str] = {}
 
@@ -94,14 +95,14 @@ def print_llvm_func_for(
     for op in node.walk():
         match op:
             case VarNode(result=r) | TunableNode(result=r):
-                inputs.add(r)
+                inputs_set.add(r)
                 _name(r, names)
             case ConstantNode(result=r, value=v, type=t) if isinstance(t, FloatType):
                 names[r] = float_with_bitwidth(v, t.width)
             case ConstantNode(result=r, value=v, type=t) if isinstance(t, IntType):
                 names[r] = str(int(v))
 
-    inputs = sorted(inputs, key=_args_key)
+    inputs = sorted(inputs_set, key=_args_key)
 
     args_count = sum(isinstance(x.owner, VarNode) for x in inputs)
 
