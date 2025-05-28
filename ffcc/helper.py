@@ -137,7 +137,7 @@ def print_progress(current: int, total: int, start_time: float, message: str = "
     )
 
 
-def prod(iter: Sequence, base = 1):
+def prod(iter: Sequence, base=1):
     if not iter:
         return base
     base = iter[0]

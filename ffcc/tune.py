@@ -99,7 +99,9 @@ class GreedyDescent:
             cfgs.add(tune)
             if tune in self.seen:
                 continue
-            err = self.program.max_relative_error(self.ref, self.domain, self.epsilon, tune)
+            err = self.program.max_relative_error(
+                self.ref, self.domain, self.epsilon, tune
+            )
             if err < best_err:
                 best_err = err
                 best_cfg = tune

@@ -49,10 +49,7 @@ def simplify_div_exp(node: IRNode) -> IRNode | None:
 
 def cancel_div(node: IRNode) -> IRNode | None:
     # check for div with
-    if (
-        not isinstance(node, MathNode)
-        or not node.kind == Kind.Div
-    ):
+    if not isinstance(node, MathNode) or not node.kind == Kind.Div:
         return None
 
     top = factors(node.argops[0])
@@ -74,12 +71,14 @@ def cancel_div(node: IRNode) -> IRNode | None:
                 continue
             btm.remove(b)
             top.remove(t)
-            top.append(MathNode(
-                t.argops[0],
-                t.argops[1] - b.argops[1],
-                kind=Kind.Pow,
-                res_type=t.type
-            ))
+            top.append(
+                MathNode(
+                    t.argops[0],
+                    t.argops[1] - b.argops[1],
+                    kind=Kind.Pow,
+                    res_type=t.type,
+                )
+            )
 
     cst1 = ConstantNode(1, node.type)
 

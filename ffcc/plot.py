@@ -114,7 +114,9 @@ def plot_main():
         type=parse_domain,
     )
     parser.add_argument(
-        "--hide-legend", help="Hide the legend", action='store_true',
+        "--hide-legend",
+        help="Hide the legend",
+        action="store_true",
     )
 
     ns = parser.parse_args()

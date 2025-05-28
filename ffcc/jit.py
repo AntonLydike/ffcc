@@ -132,7 +132,9 @@ class Program:
             tunables = self.initial_tune
         if len(tunables) != len(self.tunables):
             raise ValueError("Got the wrong number of tunables values")
-        return self.dll.max_relative_error(reference, domain, domain.size, epsilon, *tunables)
+        return self.dll.max_relative_error(
+            reference, domain, domain.size, epsilon, *tunables
+        )
 
     def sweep_tunables(
         self,
