@@ -27,10 +27,13 @@ _FLOAT_WIDTH_TO_TYPE_NAME = {
 }
 
 
-def _t(typ: Type) -> str:
+def _t(typ: Type, vsize: int = 1) -> str:
     """
     Type to llvm type string
     """
+
+    if vsize != 1:
+        return f"<{vsize} x {_t(typ, 1)}>"
 
     match typ:
         case IntType(width=w):
@@ -41,12 +44,12 @@ def _t(typ: Type) -> str:
             raise ValueError("Cannot convert type to llvm type", typ)
 
 
-def type_to_llvm_type(t: Type) -> str:
-    return _t(t)
+def type_to_llvm_type(t: Type, vsize: int = 1) -> str:
+    return _t(t, vsize)
 
 
-def _args(*arg: Value, names: dict[Value, str]) -> str:
-    return ", ".join(f"{_t(v.type)} {_name(v, names)}" for v in arg)
+def _args(*arg: Value, names: dict[Value, str], vsize: int = 1) -> str:
+    return ", ".join(f"{_t(v.type, vsize)} {_name(v, names)}" for v in arg)
 
 
 def float_with_bitwidth(value: float, bits: int) -> str:
@@ -54,6 +57,7 @@ def float_with_bitwidth(value: float, bits: int) -> str:
         return str(ctypes.c_float(value).value)
     elif bits == 64:
         return str(value)
+    raise ValueError("Unsupported float width", bits)
 
 
 def _name(val: Value, names: dict[Value, str]) -> str:
@@ -83,7 +87,11 @@ def _args_key(arg: Value) -> tuple[int, str, float]:
 
 
 def print_llvm_func_for(
-    node: IRNode, sym_name: str = "my_func", file: TextIOBase = sys.stdout
+    node: IRNode,
+    file: TextIOBase = sys.stdout,
+    sym_name: str = "my_func",
+    vectorise: int = 1,
+    **kwargs,
 ) -> tuple[list[Value], list[Value]]:
     inputs_set: set[Value] = set()
 
@@ -98,17 +106,33 @@ def print_llvm_func_for(
                 inputs_set.add(r)
                 _name(r, names)
             case ConstantNode(result=r, value=v, type=t) if isinstance(t, FloatType):
-                names[r] = float_with_bitwidth(v, t.width)
+                if vectorise == 1:
+                    names[r] = float_with_bitwidth(v, t.width)
+                else:
+                    lit = float_with_bitwidth(v, t.width)
+                    val_t = _t(t)
+                    names[r] = "<{}>".format(", ".join([f"{val_t} {lit}"] * vectorise))
             case ConstantNode(result=r, value=v, type=t) if isinstance(t, IntType):
-                names[r] = str(int(v))
+                if vectorise == 1:
+                    names[r] = str(int(v))
+                else:
+                    val_t = _t(t)
+                    names[r] = "<{}>".format(
+                        ", ".join([f"{val_t} {str(int(v))}"] * vectorise)
+                    )
 
     inputs = sorted(inputs_set, key=_args_key)
 
     args_count = sum(isinstance(x.owner, VarNode) for x in inputs)
 
+    # vectorized intrinsics need this prefix to the types
+    vec_prefix = ""
+    if vectorise > 1:
+        vec_prefix = f'v{vectorise}'
+
     # print function heading
     print(
-        f"define {_t(node.type)} @{sym_name}({_args(*inputs, names=names)}) {{",
+        f"define {_t(node.type, vectorise)} @{sym_name}({_args(*inputs, names=names, vsize=vectorise)}) {{",
         file=file,
     )
 
@@ -128,7 +152,7 @@ def print_llvm_func_for(
             elif isinstance(part, str):
                 parts.append(part)
             elif isinstance(part, Type):
-                parts.append(_t(part))
+                parts.append(_t(part, vectorise))
             else:
                 parts.append(str(part))
         if to_externals:
@@ -181,7 +205,7 @@ def print_llvm_func_for(
                 if isinstance(a.type, FloatType):
                     op = f"f{op}"
                 elif k == Kind.Div:
-                    # int div shoudl be sdiv (signed division)
+                    # int div should be sdiv (signed division)
                     op = f"s{op}"
                 ins(r, op, a.type, a, ",", b, res_t=a.type)
             case MathNode(
@@ -195,9 +219,10 @@ def print_llvm_func_for(
             ):
                 base = _ensure_type(base, FloatType(base.type.width))
                 if isinstance(exp.type, IntType):
-                    ins(r, "call", f"@llvm.powi.{_t(base.type)}.{_t(exp.type)}")
+                    # FIXME: powi only supports scalar second arguments, even in vector mode
+                    ins(r, "call", f"@llvm.powi.{vec_prefix}{_t(base.type)}.{_t(exp.type)}")
                     external_funcs.add(
-                        f"declare {_t(t)} @llvm.powi.{str(base.type)}.{str(exp.type)}({_t(base.type)}, {_t(exp.type)})"
+                        f"declare {_t(t, vectorise)} @llvm.powi.{vec_prefix}{str(base.type)}.{str(exp.type)}({_t(base.type, vectorise)}, {_t(exp.type)})"
                     )
                 else:
                     exp = _ensure_type(exp, base.type)
@@ -214,13 +239,15 @@ def print_llvm_func_for(
                         ")",
                     )
                     external_funcs.add(
-                        f"declare {_t(t)} @llvm.pow.{str(base.type)}({_t(base.type)}, {_t(exp.type)})"
+                        f"declare {_t(t,vectorise)} @llvm.pow.{vec_prefix}{str(base.type)}({_t(base.type, vectorise)}, {_t(exp.type, vectorise)})"
                     )
             case MathNode(kind=Kind.Log2, result=r, args=(a,), type=FloatType() as ft):
                 a = _ensure_type(a, ft)
-                intr = f"@llvm.log2.{str(ft)}"
+                intr = f"@llvm.log2.{vec_prefix}{str(ft)}"
                 ins(r, "call", ft, f"{intr}(", a.type, a, ")")
-                external_funcs.add(f"declare {_t(ft)} {intr}({_t(a.type)})")
+                external_funcs.add(
+                    f"declare {_t(ft, vectorise)} {intr}({_t(a.type, vectorise)})"
+                )
             case MathNode(kind=k, result=r):
                 ins(r, "unknown op", k.name.lower(), res_t=r.type)
             case BitCastOperator(direction=d, args=(a,), result=r, type=ty):

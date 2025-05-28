@@ -4,7 +4,8 @@ import sys
 import logging
 from argparse import ArgumentParser
 from dataclasses import dataclass
-from typing import TextIO, Callable
+from io import TextIOBase
+from typing import TextIO, Callable, ParamSpec, Any
 
 from ffcc.ir import IRNode
 
@@ -39,7 +40,9 @@ def get_passes(pass_args: str) -> list[Callable[[str], IRNode | None]]:
 formatter = {
     "dag": print_dag,
     "ssa": print_ssa,
-    "llvm": lambda node, buf: print_llvm_func_for(node, "my_func", buf),
+    "llvm": lambda node, buf, **kwargs: print_llvm_func_for(
+        node, buf, "my_func", **kwargs
+    ),
 }
 
 
@@ -60,7 +63,7 @@ class Main:
 
     split: bool
 
-    out_formatter: Callable[[IRNode, TextIO], None]
+    out_formatter: Callable[[IRNode, TextIO, Any], Any]
 
     passes: list[Callable[[IRNode], IRNode]]
 
@@ -70,6 +73,8 @@ class Main:
     log_to_out: bool = False
 
     print_between_passes: bool = False
+
+    vectorize: int = 1
 
     @classmethod
     def from_cli(cls, cli: list[str]) -> Main:
@@ -120,6 +125,12 @@ class Main:
             default=False,
             help="Log to output stream",
         )
+        parser.add_argument(
+            "--vectorize",
+            default=1,
+            type=int,
+            help="Print vectorized LLVM IR with the specified number of elements. 1 (= default) turns vectorization off.",
+        )
 
         ns = parser.parse_args(args=cli[1:])
         return Main(
@@ -132,6 +143,7 @@ class Main:
             verbose=ns.verbose,
             log_to_out=ns.log_to_out,
             print_between_passes=ns.print_between_passes,
+            vectorize=ns.vectorize,
         )
 
     def apply(self):
@@ -161,7 +173,7 @@ class Main:
 
                 ir = p(ir)
 
-            self.out_formatter(ir, self.out)
+            self.out_formatter(ir, self.out, vectorise=self.vectorize)
 
     def __call__(self):
         self.apply()

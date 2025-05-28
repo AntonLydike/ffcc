@@ -14,7 +14,7 @@ from ffcc.ir import (
 from io import TextIOBase, StringIO
 
 
-def print_ssa(node: IRNode, file: TextIOBase = sys.stdout):
+def print_ssa(node: IRNode, file: TextIOBase = sys.stdout, **kwargs):
     # step 1: convert dag to list (in reverse dependency order)
     irbuff = []
     stack = [node]
@@ -80,7 +80,7 @@ def _print_ssa_node(n: IRNode, names: dict[Value, str], out: TextIOBase):
             raise ValueError(f"Unknown node", n)
 
 
-def print_dag(node: IRNode, file: TextIOBase | None = None) -> str | None:
+def print_dag(node: IRNode, file: TextIOBase | None = None, **kwargs) -> str | None:
     out_was_none = file is None
     if out_was_none:
         file = StringIO()

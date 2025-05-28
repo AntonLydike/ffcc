@@ -182,9 +182,9 @@ def instantiate_node_as_jit(
     # do not re-generate files if jit debugging is enabled and files exist
     if not os.path.exists(kernel):
         with open(kernel, "w") as f:
-            args, tunes = print_llvm_func_for(node, "my_func", f)
+            args, tunes = print_llvm_func_for(node, f, sym_name="my_func")
     else:
-        args, tunes = print_llvm_func_for(node, "my_func", StringIO())
+        args, tunes = print_llvm_func_for(node, StringIO(), sym_name="my_func")
 
     # FIXME: allow programs with signatures other than "x: f32"
     assert len(args) == 1
