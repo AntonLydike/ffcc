@@ -1,5 +1,6 @@
 // RUN: ffcc -p approx,cse,simp,types %s | filecheck %s
 // RUN: ffcc -p approx,cse,simp,types %s -f llvm | opt -S | filecheck %s --check-prefix=LLVM
+// RUN: ffcc -p approx,cse,simp,types %s -f llvm --vectorize 8 | opt -S | filecheck %s --check-prefix=LLVM_VEC
 
 %x = var x : f32
 %one = constant 1 : f32
@@ -24,15 +25,34 @@
 // CHECK-NEXT: %5 = sub %sigma, %4 : i32
 // CHECK-NEXT: %6 = bitcast i2f %5 to f32
 
-// LLVM:      define float @my_func(float %x, i32 %sigma_1, i32 %sigma) {
+// LLVM:      define float @my_func(float %x, i32 %sigma, i32 %sigma_1) {
 // LLVM-NEXT:   %mx = fneg float %x
 // LLVM-NEXT:   %1 = fmul float 0x4167154760000000, %mx
 // LLVM-NEXT:   %cast = fptosi float %1 to i32
-// LLVM-NEXT:   %2 = add i32 %sigma_1, %cast
+// LLVM-NEXT:   %2 = add i32 %sigma, %cast
 // LLVM-NEXT:   %3 = bitcast i32 %2 to float
 // LLVM-NEXT:   %one_p_ex = fadd float 1.000000e+00, %3
 // LLVM-NEXT:   %4 = bitcast float %one_p_ex to i32
-// LLVM-NEXT:   %5 = sub i32 %sigma, %4
+// LLVM-NEXT:   %5 = sub i32 %sigma_1, %4
 // LLVM-NEXT:   %6 = bitcast i32 %5 to float
 // LLVM-NEXT:   %7 = fmul float %x, %6
 // LLVM-NEXT:   ret float %7
+// LLVM-NETX: }
+
+// LLVM_VEC:      define <8 x float> @my_func(<8 x float> %x, i32 %sigma, i32 %sigma_1) {
+// LLVM_VEC-NEXT:   %sigma_2 = insertelement <8 x i32> poison, i32 %sigma, i64 0
+// LLVM_VEC-NEXT:   %sigma_3 = shufflevector <8 x i32> %sigma_2, <8 x i32> poison, <8 x i32> zeroinitializer
+// LLVM_VEC-NEXT:   %sigma_4 = insertelement <8 x i32> poison, i32 %sigma_1, i64 0
+// LLVM_VEC-NEXT:   %sigma_5 = shufflevector <8 x i32> %sigma_4, <8 x i32> poison, <8 x i32> zeroinitializer
+// LLVM_VEC-NEXT:   %mx = fneg <8 x float> %x
+// LLVM_VEC-NEXT:   %1 = fmul <8 x float> splat (float 0x4167154760000000), %mx
+// LLVM_VEC-NEXT:   %cast = fptosi <8 x float> %1 to <8 x i32>
+// LLVM_VEC-NEXT:   %2 = add <8 x i32> %sigma_3, %cast
+// LLVM_VEC-NEXT:   %3 = bitcast <8 x i32> %2 to <8 x float>
+// LLVM_VEC-NEXT:   %one_p_ex = fadd <8 x float> splat (float 1.000000e+00), %3
+// LLVM_VEC-NEXT:   %4 = bitcast <8 x float> %one_p_ex to <8 x i32>
+// LLVM_VEC-NEXT:   %5 = sub <8 x i32> %sigma_5, %4
+// LLVM_VEC-NEXT:   %6 = bitcast <8 x i32> %5 to <8 x float>
+// LLVM_VEC-NEXT:   %7 = fmul <8 x float> %x, %6
+// LLVM_VEC-NEXT:   ret <8 x float> %7
+// LLVM_VEC-NEXT: }

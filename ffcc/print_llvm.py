@@ -49,7 +49,10 @@ def type_to_llvm_type(t: Type, vsize: int = 1) -> str:
 
 
 def _args(*arg: Value, names: dict[Value, str], vsize: int = 1) -> str:
-    return ", ".join(f"{_t(v.type, vsize)} {_name(v, names)}" for v in arg)
+    return ", ".join(
+        f"{_t(v.type, vsize if isinstance(v.owner, VarNode) else 1)} {_name(v, names)}"
+        for v in arg
+    )
 
 
 def float_with_bitwidth(value: float, bits: int) -> str:
@@ -91,8 +94,10 @@ def print_llvm_func_for(
     file: TextIOBase = sys.stdout,
     sym_name: str = "my_func",
     vectorise: int = 1,
+    add_scalar: bool = True,
     **kwargs,
 ) -> tuple[list[Value], list[Value]]:
+    seen: set[Value] = set()
     inputs_set: set[Value] = set()
 
     names: dict[Value, str] = {}
@@ -102,9 +107,18 @@ def print_llvm_func_for(
     # grab vars and tunables
     for op in node.walk():
         match op:
-            case VarNode(result=r) | TunableNode(result=r):
+            case VarNode(result=r):
                 inputs_set.add(r)
-                _name(r, names)
+            case TunableNode(result=r):
+                if r in seen:
+                    continue
+                seen.add(r)
+                if vectorise > 1:
+                    fake_val = Value(r.type, op, r.name)
+                    fake_val.original = r
+                    inputs_set.add(fake_val)
+                else:
+                    inputs_set.add(r)
             case ConstantNode(result=r, value=v, type=t) if isinstance(t, FloatType):
                 if vectorise == 1:
                     names[r] = float_with_bitwidth(v, t.width)
@@ -128,7 +142,7 @@ def print_llvm_func_for(
     # vectorized intrinsics need this prefix to the types
     vec_prefix = ""
     if vectorise > 1:
-        vec_prefix = f'v{vectorise}'
+        vec_prefix = f"v{vectorise}"
 
     # print function heading
     print(
@@ -184,6 +198,34 @@ def print_llvm_func_for(
             return res
         raise ValueError("Unknown type", ty)
 
+    # insert the tunable splats:
+    if vectorise > 1:
+        for arg in inputs:
+            if isinstance(arg.owner, VarNode):
+                continue
+            # temporary value for to use for the vector that contains one value of arg
+            vecval = Value(arg.type, arg.owner, arg.name)
+            ins(
+                vecval,
+                f"insertelement",
+                arg.type,
+                "poison,",
+                _t(arg.type),
+                arg,
+                ",",
+                "i64",
+                0,
+            )
+            ins(
+                arg.original,
+                f"shufflevector",
+                arg.type,
+                vecval,
+                ",",
+                arg.type,
+                f"poison, <{vectorise} x i32> zeroinitializer",
+            )
+
     for op in node.walk(reverse=True):
         if op.result in names:
             continue
@@ -220,7 +262,11 @@ def print_llvm_func_for(
                 base = _ensure_type(base, FloatType(base.type.width))
                 if isinstance(exp.type, IntType):
                     # FIXME: powi only supports scalar second arguments, even in vector mode
-                    ins(r, "call", f"@llvm.powi.{vec_prefix}{_t(base.type)}.{_t(exp.type)}")
+                    ins(
+                        r,
+                        "call",
+                        f"@llvm.powi.{vec_prefix}{_t(base.type)}.{_t(exp.type)}",
+                    )
                     external_funcs.add(
                         f"declare {_t(t, vectorise)} @llvm.powi.{vec_prefix}{str(base.type)}.{str(exp.type)}({_t(base.type, vectorise)}, {_t(exp.type)})"
                     )
@@ -266,5 +312,15 @@ def print_llvm_func_for(
     ins(None, "ret", node.type, node.result)
     print("}\n", file=file)
     print("\n".join(external_funcs), file=file)
+
+    if add_scalar and vectorise > 1:
+        print_llvm_func_for(
+            node,
+            file,
+            sym_name=f"{sym_name}_scalar",
+            vectorise=1,
+            add_scalar=False,
+            **kwargs,
+        )
 
     return inputs[:args_count], inputs[args_count:]

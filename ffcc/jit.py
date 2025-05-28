@@ -27,20 +27,31 @@ Allow debugging the jit
 
 HARNESS_TEMPLATE = """#include <math.h>
 #include <stdint.h>
+#include <math.h>
 {headers}
+
 
 typedef int32_t i32;
 typedef int64_t i64;
 
-float my_func(float x{sigma_signature});
+{kernel_res_t} my_func({kernel_in_t} x{sigma_signature});
+float my_func_scalar(float x{sigma_signature});
+
+{helpers}
 
 int eval_on_domain(float* restrict out, float* restrict domain, int64_t size{sigma_signature})
 {{
 
     {omp_pragma}
-    for (int64_t i = 0; i < size; i++) {{
-        out[i] = my_func(domain[i]{sigma_args});
+    for (int64_t i = 0; i <= size - {vec_size}; i += {vec_size}) {{
+        {vec_store} my_func({vec_load}{sigma_args}));
     }}
+    
+    // finish up remaining elements
+    for (int64_t i =  size - (size % {vec_size}); i < size; i++) {{
+        out[i] = my_func_scalar(domain[i]{sigma_args});
+    }}
+
     return 0;
 }}
 
@@ -48,17 +59,17 @@ float max_relative_error(float* restrict reference, float* restrict domain, int6
 {{
     float max_rel_err = -INFINITY;
     
+    int64_t chunk_size = {vec_size} * 1000;
+    
     {omp_pragma}
-    for (int64_t sec = 0; sec < size; sec += 1000) {{
+    for (int64_t sec = 0; sec <= size - chunk_size; sec += chunk_size) {{
         
         float local_max = -INFINITY;
-        int64_t end = fmin(size, sec + 1000);
         
-        for (int64_t i = sec; i < end; i++) {{
-            float res = my_func(domain[i]{sigma_args});
-            
-            float rel_err = fabsf(res - reference[i]) / (fabsf(reference[i]) + epsilon);
-            local_max = fmax(local_max, rel_err);
+        for (int64_t i = sec; i < sec + chunk_size; i += {vec_size}) {{
+            {vec_var} my_func({vec_load}{sigma_args}));
+
+            local_max = {max_err_calc};
         }}
         
         {omp_critical}
@@ -66,23 +77,95 @@ float max_relative_error(float* restrict reference, float* restrict domain, int6
             max_rel_err = fmax(max_rel_err, local_max);
         }}
     }}
+    
+    // finish up remaining elements
+    for (int64_t i =  size - (size % chunk_size); i < size; i++) {{
+        float res = my_func_scalar(domain[i]{sigma_args});
+        max_rel_err = fmax(max_rel_err, fabsf(res - reference[i]) / (fabsf(reference[i]) + epsilon));
+    }}
 
     return max_rel_err;
 }}
+"""
 
-int64_t sweep_tunables(float* restrict output, float* restrict reference, float* restrict domain, int64_t size, float epsilon{sigma_signature}{sigma_signature_max}{sigma_signature_steps})
-{{
-    int64_t res_idx = 0;
-    
-    {omp_pragma_sweep}
-{sigma_loops}
+SSE_RELERR = """
+// Compute max relative error of 4-wide float vectors using SSE
+float _mm_relerr(__m128 res, __m128 ref, float eps) {
+    __m128 eps_vec = _mm_set1_ps(eps);
 
-        output[res_idx++] = max_relative_error(reference, domain, size, epsilon{sigma_sweep_args});
-    
-    {sigma_loops_end}
+    // |res - ref|
+    __m128 diff = _mm_sub_ps(res, ref);
+    __m128 abs_diff = _mm_andnot_ps(_mm_set1_ps(-0.0f), diff);
 
-    return res_idx;
-}}
+    // |ref|
+    __m128 abs_ref = _mm_andnot_ps(_mm_set1_ps(-0.0f), ref);
+
+    // |ref| + eps
+    __m128 denom = _mm_add_ps(abs_ref, eps_vec);
+
+    // relerr = |res - ref| / (|ref| + eps)
+    __m128 relerr = _mm_div_ps(abs_diff, denom);
+
+    // Horizontal max reduction for 4 floats
+    __m128 shuf = _mm_movehdup_ps(relerr);     // (1,1,3,3)
+    __m128 max1 = _mm_max_ps(relerr, shuf);
+    shuf = _mm_movehl_ps(shuf, max1);
+    __m128 max2 = _mm_max_ss(max1, shuf);
+
+    return _mm_cvtss_f32(max2);
+}
+"""
+
+AVX2_RELERR = """
+// Compute max relative error of 8-wide float vectors
+float _mm256_relerr(__m256 res, __m256 ref, float eps) {
+    __m256 eps_vec = _mm256_set1_ps(eps);
+
+    // Absolute difference: |res - ref|
+    __m256 diff = _mm256_sub_ps(res, ref);
+    __m256 abs_diff = _mm256_andnot_ps(_mm256_set1_ps(-0.0f), diff);
+
+    // Absolute reference: |ref|
+    __m256 abs_ref = _mm256_andnot_ps(_mm256_set1_ps(-0.0f), ref);
+
+    // Denominator: |ref| + eps
+    __m256 denom = _mm256_add_ps(abs_ref, eps_vec);
+
+    // Relative error: |res - ref| / (|ref| + eps)
+    __m256 relerr = _mm256_div_ps(abs_diff, denom);
+
+    // Horizontal max reduction of 8 floats
+    __m128 low = _mm256_castps256_ps128(relerr);
+    __m128 high = _mm256_extractf128_ps(relerr, 1);
+    __m128 max1 = _mm_max_ps(low, high);
+    __m128 shuf = _mm_movehdup_ps(max1);     // duplicate high floats
+    __m128 max2 = _mm_max_ps(max1, shuf);
+    shuf = _mm_movehl_ps(shuf, max2);
+    __m128 max3 = _mm_max_ss(max2, shuf);
+    return _mm_cvtss_f32(max3);
+}
+"""
+
+AVX512_RELERR = """
+float _mm512_relerr(__m512 res, __m512 ref, float eps) {
+    __m512 eps_vec = _mm512_set1_ps(eps);
+
+    // |res - ref|
+    __m512 diff = _mm512_sub_ps(res, ref);
+    __m512 abs_diff = _mm512_abs_ps(diff);  // AVX-512 has native abs!
+
+    // |ref| + eps
+    __m512 abs_ref = _mm512_abs_ps(ref);
+    __m512 denom = _mm512_add_ps(abs_ref, eps_vec);
+
+    // Relative error: |res - ref| / (|ref| + eps)
+    __m512 relerr = _mm512_div_ps(abs_diff, denom);
+
+    // Horizontal maximum of 16 floats
+    float max_relerr = _mm512_reduce_max_ps(relerr);  // Native AVX-512 horizontal reduction
+
+    return max_relerr;
+}
 """
 
 
@@ -91,8 +174,10 @@ class Program:
     variables: list[VarNode]
     dll: ctypes.CDLL
 
-    def __init__(self, node: IRNode, num_threads: int = 4):
-        dll, args, tunes = instantiate_node_as_jit(node, omp_threads=num_threads)
+    def __init__(self, node: IRNode, num_threads: int = 4, vectorise: int = 1):
+        dll, args, tunes = instantiate_node_as_jit(
+            node, omp_threads=num_threads, vectorise=vectorise
+        )
 
         self.variables = [a.owner for a in args]
         self.dll = dll
@@ -136,22 +221,6 @@ class Program:
             reference, domain, domain.size, epsilon, *tunables
         )
 
-    def sweep_tunables(
-        self,
-        reference: np.ndarray,
-        domain: np.ndarray,
-        tunable_range: Sequence[tuple[float, float]],
-        tunable_steps: Sequence[int],
-        result: np.ndarray | None = None,
-    ) -> np.ndarray:
-        assert (
-            len(tunable_range) == len(tunable_steps) == len(self.tunables)
-        ), "tunable ranges and steps must match number of tunables"
-        if result is None:
-            result = np.zeros(tunable_steps, dtype=reference.dtype)
-        assert result.size == np.prod(tunable_steps), "Result must fit all outputs"
-        return result
-
     def __call__(self, x: float, *tunables: float | int) -> float:
         if len(tunables) == 0:
             tunables = self.initial_tune
@@ -161,7 +230,11 @@ class Program:
 
 
 def instantiate_node_as_jit(
-    node: IRNode, omp_threads: int = 4, lto: bool = True, opt_level: int = 3
+    node: IRNode,
+    omp_threads: int = 4,
+    lto: bool = True,
+    opt_level: int = 3,
+    vectorise: int = 1,
 ) -> tuple[ctypes.CDLL, list[Value], list[Value]]:
     if DEBUG_JIT_ENABLE is None:
         tmpdir_obj = tempfile.TemporaryDirectory()
@@ -178,13 +251,18 @@ def instantiate_node_as_jit(
     shared_obj = os.path.join(tmpdir, "out.so")
 
     out_t = node.type.ctype
+    args, tunes = None, None
 
     # do not re-generate files if jit debugging is enabled and files exist
     if not os.path.exists(kernel):
         with open(kernel, "w") as f:
-            args, tunes = print_llvm_func_for(node, f, sym_name="my_func")
+            args, tunes = print_llvm_func_for(
+                node, f, sym_name="my_func", vectorise=vectorise, add_scalar=True
+            )
     else:
-        args, tunes = print_llvm_func_for(node, StringIO(), sym_name="my_func")
+        args, tunes = print_llvm_func_for(
+            node, StringIO(), sym_name="my_func", vectorise=vectorise
+        )
 
     # FIXME: allow programs with signatures other than "x: f32"
     assert len(args) == 1
@@ -193,7 +271,12 @@ def instantiate_node_as_jit(
     # do not re-generate files if jit debugging is enabled and files exist
     if not os.path.exists(harness):
         with open(harness, "w") as f:
-            print(_build_harness(args, tunes, omp_threads=omp_threads), file=f)
+            print(
+                _build_harness(
+                    args, tunes, omp_threads=omp_threads, vec_size=vectorise
+                ),
+                file=f,
+            )
 
     cflags = ["-march=native", "-fuse-ld=lld", "-Wno-override-module"]
     if omp_threads > 1:
@@ -215,12 +298,18 @@ def instantiate_node_as_jit(
     LOGGER.info(f'Compile command: {" ".join(command)}')
 
     if DEBUG_JIT_ENABLE is not None:
-        input("JIT input files generated, press ENTER to continue compilation...")
+        input(
+            f"JIT input files generated in {tmpdir}, press ENTER to continue compilation..."
+        )
 
-    subprocess.check_call(
-        command,
-        stderr=sys.stderr if LOGGER.level <= logging.INFO else subprocess.DEVNULL,
-    )
+    try:
+        subprocess.check_call(
+            command,
+            stderr=sys.stderr if LOGGER.level <= logging.INFO else subprocess.DEVNULL,
+        )
+    except subprocess.CalledProcessError as e:
+        input(f"Look into {tmpdir}")
+        raise e
 
     lib = ctypes.CDLL(shared_obj)
 
@@ -247,22 +336,6 @@ def instantiate_node_as_jit(
 
     lib.max_relative_error.restype = ctypes.c_float
 
-    # set types for sweep_tunables
-    lib.sweep_tunables.argtypes = (
-        [
-            np.ctypeslib.ndpointer(ctypes.c_float),  # output of sweep
-            np.ctypeslib.ndpointer(input_t),  # reference
-            np.ctypeslib.ndpointer(input_t),  # domain
-            ctypes.c_float,  # epsilon
-            ctypes.c_int64,  # domain.size = referece.size
-        ]
-        + [t.type.ctype for t in tunes]
-        + [t.type.ctype for t in tunes]
-        + [ctypes.c_int for _ in tunes]
-    )
-
-    lib.sweep_tunables.restype = ctypes.c_int64
-
     # set input/output types
     # TODO: handle proper types here
     lib.my_func.argtypes = [input_t, *(t.type.ctype for t in tunes)]
@@ -272,7 +345,10 @@ def instantiate_node_as_jit(
 
 
 def _build_harness(
-    args: list[Value], tunables: list[Value], omp_threads: int = 1
+    args: list[Value],
+    tunables: list[Value],
+    omp_threads: int = 1,
+    vec_size: int = 1,
 ) -> str:
     """
     Assemble the C harness file (from HARNESS_TEMPLATE).
@@ -285,16 +361,56 @@ def _build_harness(
     assert args[0].type == FloatType(32)
 
     headers = ""
+    helpers = ""
     if omp_threads > 1:
-        headers += "#include <omp.h>"
+        headers += "#include <omp.h>\n"
 
-    sigma_loops = "\n".join(
-        f'{"    "*(i+1)}for (int step_{i} = 0; step_{i} < sigma_{i}_steps; step_{i}++) {{\n{"    "*(i+2)}float sweep_{i}_v = sigma_{i} + (sigma_{i}_max - sigma_{i}) * ((float) step_{i} / sigma_{i}_steps);\n'
-        for i in range(len(tunables))
+    sigma_args = "".join(f", sigma_{i}" for i in range(len(tunables)))
+    sigma_signature = "".join(
+        ", {} sigma_{}".format(type_to_llvm_type(t.type), i)
+        for i, t in enumerate(tunables)
     )
+
+    if vec_size > 1:
+        width = vec_size * args[0].type.width
+        # SSE are just _mm_ intrinsics
+        if width == 128:
+            suffix = ""
+            type = "__m128"
+            helpers = SSE_RELERR
+        # avx/2 has _mm256_
+        elif width == 256:
+            suffix = "256"
+            type = "__m256"
+            helpers += AVX2_RELERR
+        # and avx512 has _mm512_
+        elif width == 512:
+            suffix = "512"
+            type = "__m512"
+            helpers += AVX512_RELERR
+        else:
+            raise ValueError(f"Unsupported vector size: {width}")
+
+        headers += "#include <immintrin.h>\n"
+
+        vec_load = f"_mm{suffix}_loadu_ps(&domain[i])"
+        vec_store = f"_mm{suffix}_storeu_ps(&out[i],"
+        vec_var = f"{type} res = ("
+        kernel_in_t = type
+        kernel_res_t = type
+        max_err_calc = f"fmax(local_max, _mm{suffix}_relerr(res, _mm{suffix}_loadu_ps(&reference[i]), epsilon))"
+    else:
+        vec_store = "out[i] = ("
+        vec_load = "domain[i]"
+        vec_var = f"float res = ("
+        kernel_in_t = "float"
+        kernel_res_t = "float"
+        max_err_calc = "fmax(local_max, fabsf(res - reference[i]) / (fabsf(reference[i]) + epsilon))"
+        helpers += f"\nfloat my_func_scalar(float x{sigma_signature}) {{return my_func(x{sigma_args});}}"
 
     return HARNESS_TEMPLATE.format(
         headers=headers,
+        helpers=helpers,
         omp_pragma=(
             f"#pragma omp parallel for num_threads({omp_threads})"
             if omp_threads > 1
@@ -306,20 +422,13 @@ def _build_harness(
             if omp_threads > 1 and tunables
             else ""
         ),
-        sigma_signature="".join(
-            ", {} sigma_{}".format(type_to_llvm_type(t.type), i)
-            for i, t in enumerate(tunables)
-        ),
-        sigma_signature_max="".join(
-            ", {} sigma_{}_max".format(type_to_llvm_type(t.type), i)
-            for i, t in enumerate(tunables)
-        ),
-        sigma_signature_steps="".join(
-            ", int sigma_{}_steps".format(i) for i, _ in enumerate(tunables)
-        ),
-        sigma_count=len(tunables),
-        sigma_args="".join(f", sigma_{i}" for i in range(len(tunables))),
-        sigma_sweep_args="".join(f", sweep_{i}_v" for i in range(len(tunables))),
-        sigma_loops=sigma_loops,
-        sigma_loops_end="}" * len(tunables),
+        vec_size=vec_size,
+        vec_store=vec_store,
+        vec_load=vec_load,
+        vec_var=vec_var,
+        kernel_in_t=kernel_in_t,
+        kernel_res_t=kernel_res_t,
+        max_err_calc=max_err_calc,
+        sigma_signature=sigma_signature,
+        sigma_args=sigma_args,
     )

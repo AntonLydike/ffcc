@@ -8,6 +8,7 @@
 %pow = pow %x, %half : f32
 %div = div %one, %pow : f32
 
+
 // CHECK:      %sigma = tunable 'sigma' = 1597463007 : i32
 // CHECK-NEXT: %x = var 'x' : f32
 // CHECK-NEXT: %0 = bitcast f2i %x to i32
