@@ -282,7 +282,7 @@ def instantiate_node_as_jit(
     if omp_threads > 1:
         cflags.append("-fopenmp")
     if lto:
-        cflags.append("-flto=thin")
+        cflags.append("-flto=full")
     if opt_level > 0:
         cflags.append(f"-O{opt_level}")
 
@@ -417,11 +417,6 @@ def _build_harness(
             else ""
         ),
         omp_critical="#pragma omp critical" if omp_threads > 1 else "",
-        omp_pragma_sweep=(
-            f"#pragma omp parallel for num_threads({omp_threads})"
-            if omp_threads > 1 and tunables
-            else ""
-        ),
         vec_size=vec_size,
         vec_store=vec_store,
         vec_load=vec_load,

@@ -1,5 +1,5 @@
 {
-  description = "xDSL devshell";
+  description = "ffcc devshell";
 
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs/nixpkgs-unstable";
@@ -16,6 +16,8 @@
         in
           {
             devShells.default = with pkgs; mkShell {
+              name = "nix";
+
               LD_LIBRARY_PATH = lib.makeLibraryPath [
                 stdenv.cc.cc.lib
                 zlib
