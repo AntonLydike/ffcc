@@ -4,7 +4,7 @@ import ctypes
 from abc import ABC, abstractmethod
 from collections.abc import Iterable
 from enum import Enum, auto
-from typing import Literal, ClassVar, Sequence
+from typing import Literal, ClassVar, Sequence, Any
 from ffcc.helper import CASTS
 import copy
 
@@ -23,6 +23,16 @@ class Kind(Enum):
     Ashr = auto()  # arithmetic shift rigt
     Shl = auto()  # shift left
 
+
+def _check_arg(arg: Any) -> IRNode:
+    if isinstance(arg, IRNode):
+        return arg
+    elif isinstance(arg, int):
+        return ConstantNode(arg, IntType(32))
+    elif isinstance(arg, float):
+        return ConstantNode(arg, FloatType(32))
+
+    raise ValueError(f"Incompatible argument {arg} (of type {type(arg)})", arg)
 
 class Type:
     __match_args__ = ("width",)
@@ -172,53 +182,43 @@ class IRNode:
     def copy(self) -> IRNode:
         return copy.deepcopy(self)
 
-    def __add__(self, other: IRNode) -> IRNode:
-        if not isinstance(other, IRNode):
-            raise ValueError(other)
+    def __add__(self, other: IRNode | int | float) -> IRNode:
         return MathNode(
             self,
-            other,
+            _check_arg(other),
             kind=Kind.Add,
             res_type=self.type,
         )
 
-    def __sub__(self, other: IRNode) -> IRNode:
-        if not isinstance(other, IRNode):
-            raise ValueError(other)
+    def __sub__(self, other: IRNode | int | float) -> IRNode:
         return MathNode(
             self,
-            other,
+            _check_arg(other),
             kind=Kind.Sub,
             res_type=self.type,
         )
 
-    def __mul__(self, other: IRNode) -> IRNode:
-        if not isinstance(other, IRNode):
-            raise ValueError(other)
+    def __mul__(self, other: IRNode | int | float) -> IRNode:
         return MathNode(
             self,
-            other,
+            _check_arg(other),
             kind=Kind.Mul,
             res_type=self.type,
         )
 
-    def __truediv__(self, other: IRNode) -> IRNode:
-        if not isinstance(other, IRNode):
-            raise ValueError(other)
+    def __truediv__(self, other: IRNode | int | float) -> IRNode:
         return MathNode(
             self,
-            other,
+            _check_arg(other),
             kind=Kind.Div,
             res_type=self.type,
         )
 
-    def __pow__(self, power, modulo=None):
+    def __pow__(self, power: IRNode | int | float, modulo=None):
         assert modulo is None
-        if not isinstance(power, IRNode):
-            raise ValueError(power)
         return MathNode(
             self,
-            power,
+            _check_arg(power),
             kind=Kind.Pow,
             res_type=self.type,
         )
@@ -226,22 +226,18 @@ class IRNode:
     def __neg__(self) -> IRNode:
         return MathNode(self, kind=Kind.Negate, res_type=self.type)
 
-    def __lshift__(self, other: IRNode) -> IRNode:
-        if not isinstance(other, IRNode):
-            raise ValueError(other)
+    def __lshift__(self, other: IRNode | int | float) -> IRNode:
         return MathNode(
             self,
-            other,
+            _check_arg(other),
             kind=Kind.Shl,
             res_type=self.type,
         )
 
-    def __rshift__(self, other: IRNode) -> IRNode:
-        if not isinstance(other, IRNode):
-            raise ValueError(other)
+    def __rshift__(self, other: IRNode | int | float) -> IRNode:
         return MathNode(
             self,
-            other,
+            _check_arg(other),
             kind=Kind.Ashr,
             res_type=self.type,
         )

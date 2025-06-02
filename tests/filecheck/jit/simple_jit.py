@@ -15,7 +15,7 @@ domain = np.linspace(1, 2, 100, dtype=np.float32)
 sigmas = np.array([1], dtype=np.float32)
 
 # individual call
-print(p.dll.my_func.argtypes)
+print(p.dll.my_func_scalar.argtypes)
 # CHECK: [<class 'ctypes.c_float'>, <class 'ctypes.c_float'>]
 print(
     'my_func(0, 1) = {}'.format(p(0, 1))

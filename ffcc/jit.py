@@ -12,6 +12,7 @@ import subprocess
 
 import numpy as np
 
+from ffcc.platform import vector_width_bits
 from ffcc.print_llvm import print_llvm_func_for, type_to_llvm_type
 
 from ffcc.ir import IRNode, Value, TunableNode, VarNode, FloatType
@@ -25,8 +26,7 @@ DEBUG_JIT_ENABLE = os.environ.get("FFCC_DEBUG_JIT", None)
 Allow debugging the jit
 """
 
-HARNESS_TEMPLATE = """#include <math.h>
-#include <stdint.h>
+HARNESS_TEMPLATE = """#include <stdint.h>
 #include <math.h>
 {headers}
 
@@ -41,7 +41,6 @@ float my_func_scalar(float x{sigma_signature});
 
 int eval_on_domain(float* restrict out, float* restrict domain, int64_t size{sigma_signature})
 {{
-
     {omp_pragma}
     for (int64_t i = 0; i <= size - {vec_size}; i += {vec_size}) {{
         {vec_store} my_func({vec_load}{sigma_args}));
@@ -55,16 +54,34 @@ int eval_on_domain(float* restrict out, float* restrict domain, int64_t size{sig
     return 0;
 }}
 
+
+int eval_on_linspace(float* restrict out, float low, float high, int64_t size{sigma_signature})
+{{
+    {omp_pragma}
+    for (int64_t i = 0; i <= size - {vec_size}; i += {vec_size}) {{
+        {vec_store} my_func(linspace_chunk(i, low, high, size){sigma_args}));
+    }}
+    
+    // finish up remaining elements
+    for (int64_t i =  size - (size % {vec_size}); i < size; i++) {{
+        float frac = i / (float) size;
+        out[i] = my_func_scalar(low * (1 - frac) + (high * frac){sigma_args});
+    }}
+
+    return 0;
+}}
+
+
 float max_relative_error(float* restrict reference, float* restrict domain, int64_t size, float epsilon{sigma_signature})
 {{
-    float max_rel_err = -INFINITY;
+    float max_rel_err = 0;
     
     int64_t chunk_size = {vec_size} * 1000;
     
     {omp_pragma}
     for (int64_t sec = 0; sec <= size - chunk_size; sec += chunk_size) {{
         
-        float local_max = -INFINITY;
+        float local_max = 0;
         
         for (int64_t i = sec; i < sec + chunk_size; i += {vec_size}) {{
             {vec_var} my_func({vec_load}{sigma_args}));
@@ -146,6 +163,28 @@ float _mm256_relerr(__m256 res, __m256 ref, float eps) {
 }
 """
 
+def linspace_code(typ: str, sfx: str, vec_size: int):
+    if vec_size == 1:
+        return "inline float linspace_chunk(int64_t i, float low, float high, int64_t size) {float f = i / (float) size;return low * (1 - f) + (high * f);}\n"
+    indices = ", ".join(map(str, range(vec_size)))
+    return f"""
+inline {typ} linspace_chunk(int64_t i, float low, float high, int64_t size) {{
+    // step 0: Compute local low, high and step:
+    float frac = i / (float) size;
+    float start = low * (1.0 - frac) + (high * frac);
+    float step = (high - low) / size;
+    
+    // Step 1: Create vec of 0..{vec_size}
+    {typ} indices = _mm{sfx}_setr_ps({indices});
+
+    // Step 2: Broadcast constants
+    {typ} scale = _mm{sfx}_set1_ps(step);
+    {typ} start_vec = _mm{sfx}_set1_ps(start);
+
+    // Step 3: Compute result: low + scale * (j)
+    return _mm{sfx}_add_ps(start_vec, _mm{sfx}_mul_ps(scale, indices));
+}}\n"""
+
 AVX512_RELERR = """
 float _mm512_relerr(__m512 res, __m512 ref, float eps) {
     __m512 eps_vec = _mm512_set1_ps(eps);
@@ -168,13 +207,20 @@ float _mm512_relerr(__m512 res, __m512 ref, float eps) {
 }
 """
 
+class _AUTO:
+    pass
+
+AUTOVEC = _AUTO()
 
 class Program:
     tunables: list[TunableNode]
     variables: list[VarNode]
     dll: ctypes.CDLL
 
-    def __init__(self, node: IRNode, num_threads: int = 4, vectorise: int = 1):
+    def __init__(self, node: IRNode, num_threads: int = 4, vectorise: int | _AUTO = 1):
+        if vectorise is AUTOVEC:
+            vectorise = vector_width_bits() // node.type.width
+
         dll, args, tunes = instantiate_node_as_jit(
             node, omp_threads=num_threads, vectorise=vectorise
         )
@@ -205,6 +251,28 @@ class Program:
             raise RuntimeError("evaulation failed")
         return result
 
+    def eval_on_linspace(
+        self,
+        low: float,
+        high: float,
+        size: int,
+        tunables: Sequence[float | int] = None,
+        result: np.ndarray | None = None,
+        endpoint: bool = True,
+    ) -> np.ndarray:
+        if result is None:
+            result = np.zeros((size,), dtype=np.float32)
+        if tunables is None:
+            tunables = self.initial_tune
+        if len(tunables) != len(self.tunables):
+            raise ValueError("Got the wrong number of tunables values")
+        if endpoint:
+            # put high one higher
+            high = high + (high - low) / (size-1)
+        if self.dll.eval_on_linspace(result, low, high, size, *tunables) != 0:
+            raise RuntimeError("evaulation failed")
+        return result
+
     def max_relative_error(
         self,
         reference: np.ndarray,
@@ -226,7 +294,7 @@ class Program:
             tunables = self.initial_tune
         if len(tunables) != len(self.tunables):
             raise ValueError("Got the wrong number of tunables values")
-        return self.dll.my_func(x, *tunables)
+        return self.dll.my_func_scalar(x, *tunables)
 
 
 def instantiate_node_as_jit(
@@ -318,11 +386,20 @@ def instantiate_node_as_jit(
         np.ctypeslib.ndpointer(out_t),  # result
         np.ctypeslib.ndpointer(input_t),  # domain
         ctypes.c_int64,  # domain.size
-    ] + [
-        t.type.ctype for t in tunes  # tunables
-    ]  # *sigma
+        *(t.type.ctype for t in tunes)  # tunables
+    ]
 
     lib.eval_on_domain.restype = ctypes.c_int
+
+    lib.eval_on_linspace.argtypes = [
+        np.ctypeslib.ndpointer(out_t),  # result
+        ctypes.c_float, # low
+        ctypes.c_float, # high
+        ctypes.c_int64,  # domain.size
+        *(t.type.ctype for t in tunes) # tunables
+    ]
+
+    lib.eval_on_linspace.restype = ctypes.c_int
 
     # set types for max_relative_error
     lib.max_relative_error.argtypes = [
@@ -330,16 +407,15 @@ def instantiate_node_as_jit(
         np.ctypeslib.ndpointer(input_t),  # domain
         ctypes.c_int64,  # domain.size = referece.size
         ctypes.c_float,  # epsilon
-    ] + [
-        t.type.ctype for t in tunes  # tunables
-    ]  # *sigma
+        *(t.type.ctype for t in tunes)  # tunables
+    ]
 
     lib.max_relative_error.restype = ctypes.c_float
 
     # set input/output types
     # TODO: handle proper types here
-    lib.my_func.argtypes = [input_t, *(t.type.ctype for t in tunes)]
-    lib.my_func.restype = out_t
+    lib.my_func_scalar.argtypes = [input_t, *(t.type.ctype for t in tunes)]
+    lib.my_func_scalar.restype = out_t
 
     return lib, args, tunes
 
@@ -391,6 +467,9 @@ def _build_harness(
         else:
             raise ValueError(f"Unsupported vector size: {width}")
 
+        # add the helper for linspace
+        helpers += linspace_code(type, suffix, vec_size)
+
         headers += "#include <immintrin.h>\n"
 
         vec_load = f"_mm{suffix}_loadu_ps(&domain[i])"
@@ -400,6 +479,8 @@ def _build_harness(
         kernel_res_t = type
         max_err_calc = f"fmax(local_max, _mm{suffix}_relerr(res, _mm{suffix}_loadu_ps(&reference[i]), epsilon))"
     else:
+        # get scalar code
+        helpers += linspace_code("","", 1)
         vec_store = "out[i] = ("
         vec_load = "domain[i]"
         vec_var = f"float res = ("
