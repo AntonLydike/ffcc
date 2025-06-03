@@ -95,6 +95,7 @@ def synthesize_refinement(
             if i != 0 and i % 10000 == 0:
                 speedometer(t0, i, f"err={base_err}", file=ctx.ostream_for(0))
                 if time.time() - t0 > timeout:
+                    print("timeout hit")
                     break
 
             err = max_rel_err(res, exact_results, epsilon)
@@ -108,6 +109,7 @@ def synthesize_refinement(
                 print_ssa(current_p)
                 print("\n")
                 if current_err < err_cutoff:
+                    print("accuracy hit")
                     break
     except KeyboardInterrupt:
         if current_p is None:
@@ -133,10 +135,6 @@ def nonconst_arg(node: IRNode):
     raise ValueError("Node must have one non-const, non-var argument")
 
 
-# we want to use:
-#  - all variables
-#  - prefer operands to bitcast ops (these are pre-error variables)
-#  - simple constants
 def synthesize_with_vars(
     root: IRNode,
     variables: Sequence[VarNode],
@@ -273,7 +271,7 @@ if __name__ == "__main__":
     )
 
     result = synthesize_refinement(
-        approx, orig, np.linspace(1, 4, dtype=np.float32), epsilon=0.1, err_cutoff=0.15
+        approx, orig, np.linspace(1, 4, num=100, dtype=np.float32), epsilon=0.1, err_cutoff=0.015
     )
 
     print("\n\n\nRESULT:\n")
