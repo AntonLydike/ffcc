@@ -3,6 +3,11 @@ revision = 2
 requires-python = ">=3.12"
 
 [[package]]
+name = "aalib"
+version = "0.1.0"
+source = { git = "https://github.com/AntonLydike/aalib#935f2ef936d054931df6413e2c6d966f9a0bfe3f" }
+
+[[package]]
 name = "black"
 version = "25.1.0"
 source = { registry = "https://pypi.org/simple" }
@@ -102,6 +107,7 @@ name = "ffcc"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
+    { name = "aalib" },
     { name = "z3-solver" },
 ]
 
@@ -119,8 +125,14 @@ plot = [
     { name = "pyqt5" },
 ]
 
+[package.dev-dependencies]
+dev = [
+    { name = "objgraph" },
+]
+
 [package.metadata]
 requires-dist = [
+    { name = "aalib", git = "https://github.com/AntonLydike/aalib" },
     { name = "black", marker = "extra == 'dev'", specifier = ">=25.1.0" },
     { name = "filecheck", marker = "extra == 'dev'", specifier = ">=1.0.2" },
     { name = "lit", marker = "extra == 'dev'", specifier = ">=18.1.8" },
@@ -130,6 +142,9 @@ requires-dist = [
     { name = "z3-solver", specifier = ">=4.15.0.0" },
 ]
 provides-extras = ["dev", "jit", "plot"]
+
+[package.metadata.requires-dev]
+dev = [{ name = "objgraph", specifier = ">=3.6.2" }]
 
 [[package]]
 name = "filecheck"
@@ -307,6 +322,15 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/b1/c4/2e407e85df35b29f79945751b8f8e671057a13a376497d7fb2151ba0d290/numpy-2.2.5-cp313-cp313t-musllinux_1_2_x86_64.whl", hash = "sha256:c26843fd58f65da9491165072da2cccc372530681de481ef670dcc8e27cfb066", size = 17893672, upload-time = "2025-04-19T22:46:28.585Z" },
     { url = "https://files.pythonhosted.org/packages/29/7e/d0b44e129d038dba453f00d0e29ebd6eaf2f06055d72b95b9947998aca14/numpy-2.2.5-cp313-cp313t-win32.whl", hash = "sha256:1a161c2c79ab30fe4501d5a2bbfe8b162490757cf90b7f05be8b80bc02f7bb8e", size = 6377102, upload-time = "2025-04-19T22:46:39.949Z" },
     { url = "https://files.pythonhosted.org/packages/63/be/b85e4aa4bf42c6502851b971f1c326d583fcc68227385f92089cf50a7b45/numpy-2.2.5-cp313-cp313t-win_amd64.whl", hash = "sha256:d403c84991b5ad291d3809bace5e85f4bbf44a04bdc9a88ed2bb1807b3360bb8", size = 12750096, upload-time = "2025-04-19T22:47:00.147Z" },
+]
+
+[[package]]
+name = "objgraph"
+version = "3.6.2"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/ba/74/60dfb345ca493d69551dd1ba599ceb6fe325527fedabe4217d6e030449e2/objgraph-3.6.2.tar.gz", hash = "sha256:00b9f2f40f7422e3c7f45a61c4dafdaf81f03ff0649d6eaec866f01030e51ad8", size = 759524, upload-time = "2024-10-10T12:00:45.207Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/8e/67/7bffbb861cb8a0a62b7df50738d35812bf40dc8bcc1559c04bdf593f1164/objgraph-3.6.2-py3-none-any.whl", hash = "sha256:8114c97712291c3ba30d882406a384d0a7651b307ea9a06e0d83836ccde85e15", size = 17667, upload-time = "2024-10-10T12:00:41.581Z" },
 ]
 
 [[package]]

@@ -2,9 +2,10 @@ import itertools
 from collections.abc import Sequence, Iterator
 import time
 import numpy as np
-
+from aalib.duration import duration
+from aalib.progress import simple_progress
 from ffcc.ir import TunableNode, IntType
-from ffcc.helper import step_float, print_progress
+from ffcc.helper import step_float
 from ffcc.jit import Program
 
 
@@ -134,11 +135,13 @@ class GreedyDescent:
             if not self.take_step():
                 return self.current_conf
             if progress:
-                print_progress(
+                simple_progress(
                     self.step, self.max_steps, t0, f"loss={self.current_err:.3g}"
                 )
         if progress:
             print()
+        dur = time.time() - t0
+        print(f"took {duration(dur)}")
         return self.current_conf
 
     def _step_cfg(self, direction: tuple[int, ...]) -> tuple[int | float, ...]:

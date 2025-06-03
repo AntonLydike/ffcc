@@ -163,6 +163,7 @@ float _mm256_relerr(__m256 res, __m256 ref, float eps) {
 }
 """
 
+
 def linspace_code(typ: str, sfx: str, vec_size: int):
     if vec_size == 1:
         return "inline float linspace_chunk(int64_t i, float low, float high, int64_t size) {float f = i / (float) size;return low * (1 - f) + (high * f);}\n"
@@ -184,6 +185,7 @@ inline {typ} linspace_chunk(int64_t i, float low, float high, int64_t size) {{
     // Step 3: Compute result: low + scale * (j)
     return _mm{sfx}_add_ps(start_vec, _mm{sfx}_mul_ps(scale, indices));
 }}\n"""
+
 
 AVX512_RELERR = """
 float _mm512_relerr(__m512 res, __m512 ref, float eps) {
@@ -207,10 +209,13 @@ float _mm512_relerr(__m512 res, __m512 ref, float eps) {
 }
 """
 
+
 class _AUTO:
     pass
 
+
 AUTOVEC = _AUTO()
+
 
 class Program:
     tunables: list[TunableNode]
@@ -268,7 +273,7 @@ class Program:
             raise ValueError("Got the wrong number of tunables values")
         if endpoint:
             # put high one higher
-            high = high + (high - low) / (size-1)
+            high = high + (high - low) / (size - 1)
         if self.dll.eval_on_linspace(result, low, high, size, *tunables) != 0:
             raise RuntimeError("evaulation failed")
         return result
@@ -386,17 +391,17 @@ def instantiate_node_as_jit(
         np.ctypeslib.ndpointer(out_t),  # result
         np.ctypeslib.ndpointer(input_t),  # domain
         ctypes.c_int64,  # domain.size
-        *(t.type.ctype for t in tunes)  # tunables
+        *(t.type.ctype for t in tunes),  # tunables
     ]
 
     lib.eval_on_domain.restype = ctypes.c_int
 
     lib.eval_on_linspace.argtypes = [
         np.ctypeslib.ndpointer(out_t),  # result
-        ctypes.c_float, # low
-        ctypes.c_float, # high
+        ctypes.c_float,  # low
+        ctypes.c_float,  # high
         ctypes.c_int64,  # domain.size
-        *(t.type.ctype for t in tunes) # tunables
+        *(t.type.ctype for t in tunes),  # tunables
     ]
 
     lib.eval_on_linspace.restype = ctypes.c_int
@@ -407,7 +412,7 @@ def instantiate_node_as_jit(
         np.ctypeslib.ndpointer(input_t),  # domain
         ctypes.c_int64,  # domain.size = referece.size
         ctypes.c_float,  # epsilon
-        *(t.type.ctype for t in tunes)  # tunables
+        *(t.type.ctype for t in tunes),  # tunables
     ]
 
     lib.max_relative_error.restype = ctypes.c_float
@@ -480,7 +485,7 @@ def _build_harness(
         max_err_calc = f"fmax(local_max, _mm{suffix}_relerr(res, _mm{suffix}_loadu_ps(&reference[i]), epsilon))"
     else:
         # get scalar code
-        helpers += linspace_code("","", 1)
+        helpers += linspace_code("", "", 1)
         vec_store = "out[i] = ("
         vec_load = "domain[i]"
         vec_var = f"float res = ("

@@ -34,6 +34,7 @@ def _check_arg(arg: Any) -> IRNode:
 
     raise ValueError(f"Incompatible argument {arg} (of type {type(arg)})", arg)
 
+
 class Type:
     __match_args__ = ("width",)
 
@@ -90,12 +91,14 @@ class Value:
     name: str | None
     owner: IRNode
     uses: set[IRNode]
+    is_frozen: bool = False
 
     def __init__(self, type: Type, owner: IRNode, name: str | None = None):
         self.name = name
         self.type = type
         self.owner = owner
         self.uses = set()
+        self.is_frozen = False
 
     def __hash__(self):
         return id(self)
@@ -113,6 +116,7 @@ class Value:
         return f"{self.__class__.__name__}(type={self.type}, name={repr(self.name)}, owner={self.owner.__class__.__name__})"
 
     def replace_with(self, new_value: Value):
+        assert not self.is_frozen
         for use in self.uses:
             use.args = tuple(val if val != self else new_value for val in use.args)
             new_value.uses.add(use)
@@ -137,7 +141,8 @@ class IRNode:
         self.result = Value(result_type, self)
         # add self as use
         for arg in self.args:
-            arg.uses.add(self)
+            if not arg.is_frozen:
+                arg.uses.add(self)
 
     def __hash__(self):
         return id(self)
@@ -148,6 +153,15 @@ class IRNode:
     def __str__(self):
         return f"{self.__class__.__name__}(args={self.args}, result={self.result})"
 
+    def freeze(self):
+        """
+        Make the IR immutable, results can no longer be re-written.
+        :return:
+        """
+        self.result.is_frozen = True
+        for arg in self.args:
+            arg.owner.freeze()
+
     @property
     def argops(self) -> tuple[IRNode, ...]:
         return tuple(val.owner for val in self.args)
@@ -155,6 +169,13 @@ class IRNode:
     @property
     def type(self) -> Type:
         return self.result.type
+
+    def inputs(self) -> list[VarNode]:
+        res = []
+        for node in self.walk():
+            if isinstance(node, VarNode):
+                res.append(node)
+        return sorted(set(res), key=lambda n: res.index(n))
 
     def walk(self, reverse: bool = False) -> Iterable[IRNode]:
         if not reverse:
@@ -316,9 +337,10 @@ class ConstantNode(ConstantLikeNode):
 
     value: int | float
 
-    def __init__(self, value: int | float, type: Type):
+    def __init__(self, value: int | float, type: Type, frozen: bool = False):
         super().__init__(result_type=type)
         self.value = value
+        self.result.is_frozen = frozen
 
     def with_new_value(
         self, new_val: int | float, replace_res_type: Type | None = None
@@ -330,6 +352,13 @@ class ConstantNode(ConstantLikeNode):
     def __str__(self):
         return f"{self.__class__.__name__}(value={self.value}, result={self.result})"
 
+    def __eq__(self, other):
+        if isinstance(other, int | float):
+            return self.value == other
+        return self is other
+
+    def __hash__(self):
+        return id(self)
 
 class VarNode(IRNode):
     __match_args__ = ("name", "result", "type")

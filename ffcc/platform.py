@@ -9,11 +9,12 @@ def has_comp_flag(flag: str) -> bool:
     )
     return f"+{flag}" in res
 
+
 def vector_width_bits() -> int:
-    if has_comp_flag('avx512'):
+    if has_comp_flag("avx512"):
         return 512
-    elif has_comp_flag('avx2'):
+    elif has_comp_flag("avx2"):
         return 256
-    elif has_comp_flag('sse'):
+    elif has_comp_flag("sse"):
         return 128
     return 64

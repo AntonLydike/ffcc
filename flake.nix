@@ -27,6 +27,7 @@
               NIX_ENFORCE_NO_NATIVE = 0;
               buildInputs = [
                 uv
+		xdot
                 nodejs_22
                 clang_20
                 lld_20

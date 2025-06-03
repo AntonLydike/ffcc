@@ -7,6 +7,7 @@ authors = [{name = "Anton Lydike", email="me@antonlydike.de"}]
 license = "AGPL-3.0-or-later"
 requires-python = ">=3.12"
 dependencies = [
+    "aalib",
     "z3-solver>=4.15.0.0",
 ]
 
@@ -31,6 +32,9 @@ ffcc-plot = "ffcc.plot:plot_main"
 [tool.uv]
 package = true
 
+[tool.uv.sources]
+aalib = { git = "https://github.com/AntonLydike/aalib" }
+
 [tool.setuptools.packages]
 find = {}
 
@@ -40,3 +44,8 @@ ffcc = ["py.typed"]
 [build-system]
 requires = ["setuptools>=64", "setuptools-scm>=8"]
 build-backend = "setuptools.build_meta"
+
+[dependency-groups]
+dev = [
+    "objgraph>=3.6.2",
+]

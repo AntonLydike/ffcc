@@ -1,11 +1,12 @@
 import struct
 import ctypes
+import sys
 from collections.abc import Sequence
-from typing import Iterable
+from aalib.multilines import MultilineCtx
 
 import math
 import time
-from math import floor, log, pow
+from aalib.duration import duration
 
 
 # casting operators
@@ -14,7 +15,7 @@ def i2f(i: int) -> float:
 
 
 def f2i(f: float) -> int:
-    return struct.unpack("i", struct.pack("f", f))[0]
+    return struct.unpack("i", struct.pack("f", float(f)))[0]
 
 
 # casting operators
@@ -23,14 +24,14 @@ def i2f_64(i: int) -> float:
 
 
 def f2i_64(f: float) -> int:
-    return struct.unpack("q", struct.pack("d", f))[0]
+    return struct.unpack("q", struct.pack("d", float(f)))[0]
 
 
 CASTS = {
     ("f2i", 32): f2i,
     ("i2f", 32): i2f,
-    ("i2f_64", 32): i2f_64,
-    ("f2i_64", 32): f2i_64,
+    ("f2i", 64): f2i_64,
+    ("i2f", 64): i2f_64,
 }
 
 _dur_to_prefix_small = {
@@ -52,43 +53,6 @@ _time_divisions = (
     (100, "century"),
 )
 
-
-def duration(dur_in_seconds: float) -> str:
-    """
-    Convert a duration in seconds to a string
-
-    :param dur_in_seconds:
-    :return:
-    """
-    if dur_in_seconds <= 0:
-        return "0s"
-    if dur_in_seconds < 60:
-        exp = floor(log(dur_in_seconds, 1000))
-        if exp not in _dur_to_prefix_small:
-            return f"{dur_in_seconds}s"
-        ttl = dur_in_seconds / pow(1000, exp)
-        sfx = _dur_to_prefix_small[exp]
-        return f"{ttl:.3g}{sfx}".lstrip()
-
-    last_num, last_suf = 0, "ms"
-    num, suf = dur_in_seconds, "s"
-    for div, new_suf in _time_divisions:
-        if num < div:
-            if last_num < 1:
-                if round(num) == num:
-                    return f"{round(num)}{suf}"
-                return f"{num:.3g}{suf}"
-            return f"{floor(num)}{suf}{round(last_num)}{last_suf}"
-        last_suf = suf
-        last_num = num % div
-        num /= div
-        suf = new_suf
-
-    if last_num < 1:
-        if round(num) == num:
-            num = round(num)
-        return f"{num:.3g}{suf}"
-    return f"{round(num)}{suf}{round(last_num)}{last_suf}"
 
 
 def step_float(x, step: int):
@@ -119,23 +83,6 @@ def step_float(x, step: int):
     return sign * struct.unpack("<f", struct.pack("<I", n))[0]
 
 
-def print_progress(current: int, total: int, start_time: float, message: str = ""):
-    percent = 100 * current // total
-    elapsed = time.time() - start_time
-    avg_time = elapsed / (current + 1)
-    remaining = duration(avg_time * (total - current - 1))
-
-    bar_len = 50
-    filled_len = int(bar_len * percent // 100)
-    bar = "=" * filled_len + "-" * (bar_len - filled_len)
-    size = math.ceil(math.log10(total))
-
-    print(
-        f"\r[{bar}] {percent}% ({current:0{size}}/{total}) - ETA: {remaining} ({duration(avg_time)}/elem) {message}   ",
-        flush=True,
-        end="",
-    )
-
 
 def prod(iter: Sequence, base=1):
     if not iter:
@@ -144,3 +91,14 @@ def prod(iter: Sequence, base=1):
     for x in iter[1:]:
         base *= x
     return base
+
+
+
+def speedometer(t0: float, iters: int, message: str = "", file = sys.stdout):
+    elem_per_s = iters / (time.time() - t0)
+    if elem_per_s < 1:
+        s_per_elem = 1 / elem_per_s
+        print(f"{duration(s_per_elem)}/elem ({iters} elems processed) {message}", end="\r", file=file)
+    if elem_per_s > 1000:
+        elem_per_s = int(elem_per_s)
+    print(f"{elem_per_s}elem/s ({iters} elems processed) {message}", end="\r", file=file)

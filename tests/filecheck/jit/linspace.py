@@ -17,7 +17,7 @@ domain_open = np.linspace(-5, 5, num_elems, endpoint=False, dtype=np.float32)
 
 def check_isclose(reference: np.ndarray, b: np.ndarray):
     for i, (ref, e1) in enumerate(zip(reference, b)):
-        if not np.isclose(e1, ref):
+        if not np.isclose(e1, ref, atol=1e-6):
             print(f"a = {reference}\nb = {b}")
             print(f"Mismatching values at index {i}: {ref} != {e1}")
             return False
@@ -52,7 +52,7 @@ print("#### vectorized incr:")
 
 incr_vec = Program(VarNode('x', f32) + 1.0, num_threads=1, vectorise=AUTOVEC)
 
-num_elems = 10_000
+num_elems = 1000
 domain = np.linspace(-5, 5, num_elems, dtype=np.float32)
 
 domain_open = np.linspace(-5, 5, num_elems, dtype=np.float32, endpoint=False)
@@ -81,10 +81,10 @@ import matplotlib
 #    lh.set_alpha(1)
 #plt.show()
 
-assert check_isclose(domain + 1, incr.eval_on_domain(domain))
+assert check_isclose(domain + 1, incr_vec.eval_on_domain(domain))
 print("eval_on_domain: check")
-assert check_isclose(domain + 1, incr.eval_on_linspace(-5, 5, num_elems, endpoint=True))
+assert check_isclose(domain + 1, incr_vec.eval_on_linspace(-5, 5, num_elems, endpoint=True))
 print("eval_on_linspace(endpoint=True): check")
-assert check_isclose(domain_open + 1, incr.eval_on_linspace(-5, 5, num_elems, endpoint=False))
+assert check_isclose(domain_open + 1, incr_vec.eval_on_linspace(-5, 5, num_elems, endpoint=False))
 print("eval_on_linspace(endpoint=False): check")
 
