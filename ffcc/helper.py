@@ -54,7 +54,6 @@ _time_divisions = (
 )
 
 
-
 def step_float(x, step: int):
     x = float(x)
 
@@ -83,7 +82,6 @@ def step_float(x, step: int):
     return sign * struct.unpack("<f", struct.pack("<I", n))[0]
 
 
-
 def prod(iter: Sequence, base=1):
     if not iter:
         return base
@@ -93,12 +91,17 @@ def prod(iter: Sequence, base=1):
     return base
 
 
-
-def speedometer(t0: float, iters: int, message: str = "", file = sys.stdout):
+def speedometer(t0: float, iters: int, message: str = "", file=sys.stdout):
     elem_per_s = iters / (time.time() - t0)
     if elem_per_s < 1:
         s_per_elem = 1 / elem_per_s
-        print(f"{duration(s_per_elem)}/elem ({iters} elems processed) {message}", end="\r", file=file)
+        print(
+            f"{duration(s_per_elem)}/elem ({iters} elems processed) {message}",
+            end="\r",
+            file=file,
+        )
     if elem_per_s > 1000:
         elem_per_s = int(elem_per_s)
-    print(f"{elem_per_s}elem/s ({iters} elems processed) {message}", end="\r", file=file)
+    print(
+        f"{elem_per_s}elem/s ({iters} elems processed) {message}", end="\r", file=file
+    )

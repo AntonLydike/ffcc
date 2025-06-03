@@ -4,7 +4,7 @@ import ctypes
 from abc import ABC, abstractmethod
 from collections.abc import Iterable
 from enum import Enum, auto
-from typing import Literal, ClassVar, Sequence, Any
+from typing import Literal, ClassVar, Sequence, Any, Self
 from ffcc.helper import CASTS
 import copy
 
@@ -24,8 +24,8 @@ class Kind(Enum):
     Shl = auto()  # shift left
 
 
-def _check_arg(arg: Any) -> IRNode:
-    if isinstance(arg, IRNode):
+def _check_arg(arg: Any) -> IRNode | Value:
+    if isinstance(arg, (IRNode, Value)):
         return arg
     elif isinstance(arg, int):
         return ConstantNode(arg, IntType(32))
@@ -93,12 +93,14 @@ class Value:
     uses: set[IRNode]
     is_frozen: bool = False
 
-    def __init__(self, type: Type, owner: IRNode, name: str | None = None):
+    def __init__(
+        self, type: Type, owner: IRNode, name: str | None = None, frozen: bool = False
+    ):
         self.name = name
         self.type = type
         self.owner = owner
         self.uses = set()
-        self.is_frozen = False
+        self.is_frozen = frozen
 
     def __hash__(self):
         return id(self)
@@ -153,14 +155,16 @@ class IRNode:
     def __str__(self):
         return f"{self.__class__.__name__}(args={self.args}, result={self.result})"
 
-    def freeze(self):
+    def freeze(self) -> Self:
         """
         Make the IR immutable, results can no longer be re-written.
         :return:
         """
         self.result.is_frozen = True
         for arg in self.args:
-            arg.owner.freeze()
+            if not arg.is_frozen:
+                arg.owner.freeze()
+        return self
 
     @property
     def argops(self) -> tuple[IRNode, ...]:
@@ -203,7 +207,7 @@ class IRNode:
     def copy(self) -> IRNode:
         return copy.deepcopy(self)
 
-    def __add__(self, other: IRNode | int | float) -> IRNode:
+    def __add__(self, other: IRNode | Value | int | float) -> IRNode:
         return MathNode(
             self,
             _check_arg(other),
@@ -211,7 +215,7 @@ class IRNode:
             res_type=self.type,
         )
 
-    def __sub__(self, other: IRNode | int | float) -> IRNode:
+    def __sub__(self, other: IRNode | Value | int | float) -> IRNode:
         return MathNode(
             self,
             _check_arg(other),
@@ -219,7 +223,7 @@ class IRNode:
             res_type=self.type,
         )
 
-    def __mul__(self, other: IRNode | int | float) -> IRNode:
+    def __mul__(self, other: IRNode | Value | int | float) -> IRNode:
         return MathNode(
             self,
             _check_arg(other),
@@ -227,7 +231,7 @@ class IRNode:
             res_type=self.type,
         )
 
-    def __truediv__(self, other: IRNode | int | float) -> IRNode:
+    def __truediv__(self, other: IRNode | Value | int | float) -> IRNode:
         return MathNode(
             self,
             _check_arg(other),
@@ -235,7 +239,7 @@ class IRNode:
             res_type=self.type,
         )
 
-    def __pow__(self, power: IRNode | int | float, modulo=None):
+    def __pow__(self, power: IRNode | Value | int | float, modulo=None):
         assert modulo is None
         return MathNode(
             self,
@@ -247,7 +251,7 @@ class IRNode:
     def __neg__(self) -> IRNode:
         return MathNode(self, kind=Kind.Negate, res_type=self.type)
 
-    def __lshift__(self, other: IRNode | int | float) -> IRNode:
+    def __lshift__(self, other: IRNode | Value | int | float) -> IRNode:
         return MathNode(
             self,
             _check_arg(other),
@@ -255,7 +259,7 @@ class IRNode:
             res_type=self.type,
         )
 
-    def __rshift__(self, other: IRNode | int | float) -> IRNode:
+    def __rshift__(self, other: IRNode | Value | int | float) -> IRNode:
         return MathNode(
             self,
             _check_arg(other),
@@ -359,6 +363,7 @@ class ConstantNode(ConstantLikeNode):
 
     def __hash__(self):
         return id(self)
+
 
 class VarNode(IRNode):
     __match_args__ = ("name", "result", "type")

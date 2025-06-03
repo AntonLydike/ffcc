@@ -1,4 +1,5 @@
 import sys
+from itertools import count
 
 from ffcc.ir import (
     IRNode,
@@ -15,19 +16,43 @@ from io import TextIOBase, StringIO
 
 
 def print_ssa(node: IRNode, file: TextIOBase = sys.stdout, **kwargs):
-    # step 1: convert dag to list (in reverse dependency order)
-    irbuff = []
-    stack = [node]
-    idx = 0
-    op: IRNode
-    while stack:
-        op = stack.pop()
-        stack.extend((arg.owner for arg in op.args))
-        irbuff.append(op)
-    # step 2: iterate over the reversed list, and print items
+    # step 0: set up infra for naming values:
     names: dict[Value, str] = dict()
     used_names = set()
     printed = set()
+    idx = count(0)
+
+    def name(val: Value):
+        # check if name hint is set
+        if val.name is not None and not val.name[0].isnumeric():
+            n = val.name
+            i = 1
+            while n in used_names:
+                n = f"{val.name}{i}"
+                i += 1
+            names[val] = n
+            used_names.add(n)
+        # generate sequential name
+        else:
+            name = str(next(idx))
+            names[val] = name
+            used_names.add(name)
+
+    # step 1: convert dag to list (in reverse dependency order)
+    irbuff = []
+    stack = [node]
+    op: IRNode
+    while stack:
+        op = stack.pop()
+        for arg in op.args:
+            if arg.owner is None:
+                name(arg)
+                continue
+            stack.append(arg.owner)
+
+        irbuff.append(op)
+
+    # step 2: iterate over the reversed list, and print items
     for op in reversed(irbuff):
         # print ops once
         if op in printed:
@@ -38,20 +63,10 @@ def print_ssa(node: IRNode, file: TextIOBase = sys.stdout, **kwargs):
         # skip already named values
         if op.result in names:
             continue
-        # check if name hint is set
-        if op.result.name is not None and not op.result.name[0].isnumeric():
-            n = op.result.name
-            i = 1
-            while n in used_names:
-                n = f"{op.result.name}{i}"
-                i += 1
-            names[op.result] = n
-            used_names.add(n)
-        # generate sequential name
-        else:
-            names[op.result] = idx
-            used_names.add(idx)
-            idx += 1
+
+        # assign name to result
+        name(op.result)
+
         _print_ssa_node(op, names, file)
 
 

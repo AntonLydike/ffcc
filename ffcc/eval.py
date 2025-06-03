@@ -1,13 +1,12 @@
 from collections.abc import Sequence
-from typing import Generic, TypeVar
+from typing import TypeVar
 from ffcc.ir import (
     IRNode,
     Value,
     MathNode,
     Kind,
-    ConstantNode,
-    TunableNode,
-    BitCastOperator, ConstantLikeNode,
+    BitCastOperator,
+    ConstantLikeNode,
 )
 import numpy as np
 from ffcc.helper import CASTS
