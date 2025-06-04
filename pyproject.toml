@@ -28,6 +28,7 @@ plot = [
 [project.scripts]
 ffcc = "ffcc.main:main"
 ffcc-plot = "ffcc.plot:plot_main"
+ffcc-synth = "ffcc.synth:main"
 
 [tool.uv]
 package = true

@@ -37,8 +37,8 @@ def synthesize_refinement(
     exact: IRNode,
     domain: np.ndarray,
     epsilon: float = 0.0,
-    timeout: float = 6 * 60,
-    err_cutoff=0.0,
+    timeout: float = -1,
+    err_cutoff=0.01,
 ) -> IRNode:
     vars = approx.inputs()
     exact_vars = exact.inputs()
@@ -94,8 +94,8 @@ def synthesize_refinement(
 
             if i != 0 and i % 10000 == 0:
                 speedometer(t0, i, f"err={base_err}", file=ctx.ostream_for(0))
-                if time.time() - t0 > timeout:
-                    print("timeout hit")
+                # if timeout is greater than zero, and the elapsed time is greater than that
+                if 0 < timeout < time.time() - t0:
                     break
 
             err = max_rel_err(res, exact_results, epsilon)
@@ -109,12 +109,14 @@ def synthesize_refinement(
                 print_ssa(current_p)
                 print("\n")
                 if current_err < err_cutoff:
-                    print("accuracy hit")
                     break
     except KeyboardInterrupt:
         if current_p is None:
             print("No valid program found, raising exception again")
             raise
+
+    # clear multiline context
+    del ctx
 
     current_p = apply_subs(current_p, current_subs)
 
@@ -181,7 +183,7 @@ def synthesize_with_vars(
                     continue
                 # return a dict mapping hole -> real value
                 yield sketch, dict(zip(holes, combination, strict=True))
-        print(f"{i} sketches at depth {d}", file=generation_progress)
+        print(f"1 result, {len(values_to_use)} vars, {len(constants)} constants", file=generation_progress)
 
 
 def program_sketches(holes: list[Value]):
@@ -249,30 +251,77 @@ def apply_subs(p: IRNode, subs: dict[Value, Value]):
     return p
 
 
-if __name__ == "__main__":
+def main():
     from ffcc.parse import parse_ssa
+    import argparse
 
-    orig = parse_ssa(
-        """%x = var x : f32
-    %mh = constant -0.5 : f32
-    %r = pow %x, %mh : f32
-    """
+    parser = argparse.ArgumentParser(usage="Synthesize a refinement for a program")
+    parser.add_argument(
+        "-i", "--input",
+        help="Input file containing the approximate program (if it contains multiple, the last program is used), defaults to stdin",
+        default=sys.stdin,
+    )
+    parser.add_argument(
+        "--exact",
+        help="File that contains the exact IR (pass '#\\d' to specify a split version of the input file), defaults to #0",
+        default="#0"
+    )
+    parser.add_argument(
+        "--err-cutoff",
+        type=float,
+        default=1e-5,
+        help="Accuracy target - stop searching after reaching this accuracy",
+    )
+    parser.add_argument(
+        "-e",
+        "--epsilon",
+        type=float,
+        default=0.1,
+        help="Epsilon for weakening relative accuracy around 0",
+    )
+    parser.add_argument(
+        "--timeout",
+        type=float,
+        default=-1,
+        help="Timeout after which to abort the search (negative numbers disable timeouts)",
+    )
+    parser.add_argument(
+        "--domain",
+        help="Domain to evaluate on, as two floating point values separated by a comma (e.g. -2,2)",
+    )
+    parser.add_argument(
+        "--samples",
+        default=100,
+        type=int,
+        help="Number of points to evaluate programs on",
     )
 
-    approx = parse_ssa(
-        """%sigma = tunable 'sigma' = 1597463007 : i32
-    %x = var 'x' : f32
-    %0 = bitcast f2i %x to i32
-    %1 = constant 1 : i32
-    %2 = ashr %0, %1 : i32
-    %3 = negate %2 : i32
-    %4 = add %sigma, %3 : i32
-    %5 = bitcast i2f %4 to f32"""
-    )
+    args = parser.parse_args()
+
+    if isinstance(args.input, str):
+        with open(args.input, "r") as f:
+            programs = f.read().split("-----")
+    else:
+        programs = args.input.read().split("-----")
+
+    approx = parse_ssa(programs[-1])
+
+    if args.exact.startswith("#"):
+        num = int(args.exact[1:])
+        exact = parse_ssa(programs[num])
+    else:
+        with open(args.exact, "r") as f:
+            exact = parse_ssa(f.read())
+
+    start, stop = map(float, args.domain.split(","))
+    domain = np.linspace(start, stop, args.samples, dtype=np.float32)
 
     result = synthesize_refinement(
-        approx, orig, np.linspace(1, 4, num=100, dtype=np.float32), epsilon=0.1, err_cutoff=0.015
+        approx, exact, domain, epsilon=args.epsilon, err_cutoff=args.err_cutoff
     )
 
-    print("\n\n\nRESULT:\n")
     print_ssa(result)
+
+
+if __name__ == "__main__":
+    main()

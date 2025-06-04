@@ -7,20 +7,10 @@ from ffcc.ir import (
     Kind,
     BitCastOperator,
     ConstantLikeNode,
+    CastOperator, IntType,
 )
 import numpy as np
 from ffcc.helper import CASTS
-
-_NP_TYPE_CONV = {
-    # i2f
-    np.dtype("int32"): np.dtype("float32"),
-    np.dtype("int64"): np.dtype("float64"),
-    np.dtype("int16"): np.dtype("float16"),
-    # f2i
-    np.dtype("float32"): np.dtype("int32"),
-    np.dtype("float64"): np.dtype("int64"),
-    np.dtype("float16"): np.dtype("int16"),
-}
 
 T = TypeVar("T", bound=np.ndarray | float)
 
@@ -56,8 +46,8 @@ def evaluate_node(node: IRNode, vals: Sequence[T | float]) -> T | float:
     Evaluate the result of node, assuming assigned values
     """
     match node, vals:
-        case ConstantLikeNode(value=v), ():
-            return v
+        case ConstantLikeNode(value=val), ():
+            return val
         case MathNode(kind=Kind.Log2), (val,):
             return np.log2(val)
         case MathNode(kind=Kind.Negate), (val,):
@@ -65,22 +55,34 @@ def evaluate_node(node: IRNode, vals: Sequence[T | float]) -> T | float:
         case MathNode(kind=Kind.Floor), (val,):
             return np.floor(val)
         case MathNode(kind=Kind.Pow), (base, exp):
-            return base**exp
+            return np.pow(base, exp)
         case MathNode(kind=Kind.Add), (a, b):
-            return a + b
+            return np.add(a, b)
         case MathNode(kind=Kind.Sub), (a, b):
-            return a - b
+            return np.subtract(a, b)
         case MathNode(kind=Kind.Mul), (a, b):
-            return a * b
+            return np.multiply(a, b)
         case MathNode(kind=Kind.Div), (a, b):
-            return a / b
+            return np.divide(a, b)
         case MathNode(kind=Kind.Ashr), (a, b):
-            return a // (2**b)
+            return np.floor_divide(a, np.pow(2,b))
         case MathNode(kind=Kind.Shl), (a, b):
-            return a * (2**b)
-        case BitCastOperator(direction=d, type=t), (a,):
-            val = a
-            if isinstance(a, np.ndarray):
-                return np.frombuffer(val.tobytes(), _NP_TYPE_CONV[val.dtype])
+            return np.multiply(a, np.pow(2,b))
+        case BitCastOperator(direction=d, type=t), (a, ) if isinstance(a, (int, float)):
+            return CASTS[d, t.width](a)
+        case BitCastOperator(direction='f2i', type=t), (a,):
+            buff = a.astype(np.dtype(f'float{t.width}')).tobytes()
+            return np.frombuffer(buff, np.dtype(f'int{t.width}'))
+        case BitCastOperator(direction='i2f', type=t), (a,):
+            buff = a.astype(np.dtype(f'int{t.width}')).tobytes()
+            return np.frombuffer(buff, np.dtype(f'float{t.width}'))
+        case CastOperator(type=t), (val,) if isinstance(val, np.ndarray):
+            if isinstance(t, IntType):
+                dt = np.dtype(f'int{t.width}')
             else:
-                return CASTS[d, t.width](val)
+                dt = np.dtype(f'float{t.width}')
+            return val.astype(dt)
+        case CastOperator(type=t), (val,):
+            if isinstance(t, IntType):
+                return int(val)
+            return float(val)
