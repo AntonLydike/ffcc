@@ -1,14 +1,14 @@
 from __future__ import annotations
 
+import copy
+import math
 import ctypes
+from enum import Enum, auto
 from abc import ABC, abstractmethod
 from collections.abc import Iterable
-from enum import Enum, auto
 from typing import Literal, ClassVar, Sequence, Any, Self
-from ffcc.helper import CASTS
-import copy
 
-import math
+from ffcc.helper import CASTS
 
 
 class Kind(Enum):

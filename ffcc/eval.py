@@ -7,7 +7,8 @@ from ffcc.ir import (
     Kind,
     BitCastOperator,
     ConstantLikeNode,
-    CastOperator, IntType,
+    CastOperator,
+    IntType,
 )
 import numpy as np
 from ffcc.helper import CASTS
@@ -65,22 +66,22 @@ def evaluate_node(node: IRNode, vals: Sequence[T | float]) -> T | float:
         case MathNode(kind=Kind.Div), (a, b):
             return np.divide(a, b)
         case MathNode(kind=Kind.Ashr), (a, b):
-            return np.floor_divide(a, np.pow(2,b))
+            return np.floor_divide(a, np.pow(2, b))
         case MathNode(kind=Kind.Shl), (a, b):
-            return np.multiply(a, np.pow(2,b))
-        case BitCastOperator(direction=d, type=t), (a, ) if isinstance(a, (int, float)):
+            return np.multiply(a, np.pow(2, b))
+        case BitCastOperator(direction=d, type=t), (a,) if isinstance(a, (int, float)):
             return CASTS[d, t.width](a)
-        case BitCastOperator(direction='f2i', type=t), (a,):
-            buff = a.astype(np.dtype(f'float{t.width}')).tobytes()
-            return np.frombuffer(buff, np.dtype(f'int{t.width}'))
-        case BitCastOperator(direction='i2f', type=t), (a,):
-            buff = a.astype(np.dtype(f'int{t.width}')).tobytes()
-            return np.frombuffer(buff, np.dtype(f'float{t.width}'))
+        case BitCastOperator(direction="f2i", type=t), (a,):
+            buff = a.astype(np.dtype(f"float{t.width}")).tobytes()
+            return np.frombuffer(buff, np.dtype(f"int{t.width}"))
+        case BitCastOperator(direction="i2f", type=t), (a,):
+            buff = a.astype(np.dtype(f"int{t.width}")).tobytes()
+            return np.frombuffer(buff, np.dtype(f"float{t.width}"))
         case CastOperator(type=t), (val,) if isinstance(val, np.ndarray):
             if isinstance(t, IntType):
-                dt = np.dtype(f'int{t.width}')
+                dt = np.dtype(f"int{t.width}")
             else:
-                dt = np.dtype(f'float{t.width}')
+                dt = np.dtype(f"float{t.width}")
             return val.astype(dt)
         case CastOperator(type=t), (val,):
             if isinstance(t, IntType):

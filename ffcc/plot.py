@@ -1,8 +1,10 @@
 import argparse
 from typing import Sequence
 
-import matplotlib.pyplot as plt
 import matplotlib
+matplotlib.use("TkAgg")
+
+import matplotlib.pyplot as plt
 import numpy as np
 import math
 import sys
@@ -12,7 +14,6 @@ from ffcc.main import open_source, config_log
 
 from ffcc.parse import parse_ssa
 
-matplotlib.use("TkAgg")
 
 
 def plot_eval(

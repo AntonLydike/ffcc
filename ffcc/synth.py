@@ -8,6 +8,7 @@ import time
 from typing import Iterable, TypeVar
 from collections.abc import Sequence, Iterator
 
+from aalib.colors import FMT
 from aalib.multilines import MultilineCtx
 
 from ffcc.helper import speedometer
@@ -175,6 +176,7 @@ def synthesize_with_vars(
             list(enumerate(program_sketches(holes))),
             message=f"depth={d}",
             file=fine_progress,
+            color=FMT.random(),
         ):
             for combination in itertools.product(
                 (base_var, *values_to_use, *constants), repeat=d
@@ -183,7 +185,10 @@ def synthesize_with_vars(
                     continue
                 # return a dict mapping hole -> real value
                 yield sketch, dict(zip(holes, combination, strict=True))
-        print(f"1 result, {len(values_to_use)} vars, {len(constants)} constants", file=generation_progress)
+        print(
+            f"1 result, {len(values_to_use)} vars, {len(constants)} constants",
+            file=generation_progress,
+        )
 
 
 def program_sketches(holes: list[Value]):
@@ -214,6 +219,20 @@ def program_sketches(holes: list[Value]):
         MathNode(a, b, kind=Kind.Add, res_type=f32).freeze(),
     ):
         yield from program_sketches([new_hole.result, *holes])
+
+
+def program_impls(values: list[Value]):
+    if len(values) == 2:
+        a, b = values
+        # if they are not the same, yield both a*b and b*a (same for plus)
+        if a != b:
+            yield MathNode(a, b, kind=Kind.Mul, res_type=f32).freeze()
+            yield MathNode(a, b, kind=Kind.Add, res_type=f32).freeze()
+        yield MathNode(b, a, kind=Kind.Mul, res_type=f32).freeze()
+        yield MathNode(b, a, kind=Kind.Add, res_type=f32).freeze()
+        yield MathNode(a, b, kind=Kind.Sub, res_type=f32).freeze()
+        yield MathNode(b, a, kind=Kind.Sub, res_type=f32).freeze()
+        return
 
 
 def constant_generator() -> Iterator[ConstantNode]:
@@ -257,14 +276,15 @@ def main():
 
     parser = argparse.ArgumentParser(usage="Synthesize a refinement for a program")
     parser.add_argument(
-        "-i", "--input",
+        "-i",
+        "--input",
         help="Input file containing the approximate program (if it contains multiple, the last program is used), defaults to stdin",
         default=sys.stdin,
     )
     parser.add_argument(
         "--exact",
         help="File that contains the exact IR (pass '#\\d' to specify a split version of the input file), defaults to #0",
-        default="#0"
+        default="#0",
     )
     parser.add_argument(
         "--err-cutoff",

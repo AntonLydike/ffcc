@@ -1,0 +1,46 @@
+%0 = constant 8388608 : f32
+%1 = constant 127 : f32
+%sigma = tunable 'sigma' = 0.0450466 : f32
+%2 = sub %1, %sigma : f32
+%3 = mul %0, %2 : f32
+%e = constant 2.718281828459045 : f32
+%4 = log2 %e : f32
+%5 = mul %0, %4 : f32
+%6 = constant 2 : f32
+%x = var 'x' : f32
+%7 = mul %6, %x : f32
+%8 = mul %5, %7 : f32
+%9 = add %3, %8 : f32
+%10 = bitcast i2f %9 to f32
+%11 = constant 1 : i32
+%top = sub %10, %11 : f32
+%bot = add %10, %11 : f32
+%res = div %top, %bot : f32
+
+// -----
+
+%0 = constant 8388608 : f32
+%1 = constant 127 : f32
+%sigma = tunable 'sigma' = 0.0450466 : f32
+// sub %1, %sigma : f32
+%2 = constant 126.9549534   : f32                    
+
+// mul %0, %2 : f32
+%3 = constant 1064975337.7308671 : f32          
+%e = constant 2.718281828459045 : f32
+// log2 %e : f32
+%4 = constant 1.4426950408889634 : f32          
+// mul %0, %4 : f32
+%5 = constant 12102203.161561485 : f32          
+%6 = constant 2 : f32
+%x = var 'x' : f32
+%cc = constant 24204406.32312297 : f32          
+// %7 = mul %6, %x : f32
+// %8 = mul %5, %7 : f32
+%8 = mul %cc, %x : f32
+%9 = add %3, %8 : f32
+%10 = bitcast i2f %9 to f32
+%11 = constant 1 : i32
+%top = sub %10, %11 : f32
+%bot = add %10, %11 : f32
+%res = div %top, %bot : f32

@@ -27,13 +27,14 @@
               NIX_ENFORCE_NO_NATIVE = 0;
               buildInputs = [
                 uv
-		xdot
+		            xdot
                 nodejs_22
                 clang_20
                 lld_20
-		        llvmPackages_20.openmp
-		        python312Full
-		        llvmPackages_20.libllvm
+                llvmPackages_20.openmp
+                python312Full
+                python312Packages.tkinter
+                llvmPackages_20.libllvm
               ];
             };
           }

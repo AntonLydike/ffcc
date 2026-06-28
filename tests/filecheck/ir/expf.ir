@@ -1,0 +1,3 @@
+%x = var x : f32
+%e = constant e : f32
+%res = pow %e, %x : f32

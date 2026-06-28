@@ -1,20 +1,17 @@
-import logging
-import sys
-from io import StringIO
-
-from typing import Sequence
-
 import os
+import sys
 import shlex
 import ctypes
+import logging
 import tempfile
 import subprocess
+from io import StringIO
+from typing import Sequence
 
 import numpy as np
 
 from ffcc.platform import vector_width_bits
 from ffcc.print_llvm import print_llvm_func_for, type_to_llvm_type
-
 from ffcc.ir import IRNode, Value, TunableNode, VarNode, FloatType
 
 LOGGER = logging.getLogger(__name__)
@@ -45,7 +42,7 @@ int eval_on_domain(float* restrict out, float* restrict domain, int64_t size{sig
     for (int64_t i = 0; i <= size - {vec_size}; i += {vec_size}) {{
         {vec_store} my_func({vec_load}{sigma_args}));
     }}
-    
+
     // finish up remaining elements
     for (int64_t i =  size - (size % {vec_size}); i < size; i++) {{
         out[i] = my_func_scalar(domain[i]{sigma_args});

@@ -174,44 +174,27 @@ def log_identities(node: IRNode) -> IRNode | None:
             ),
         ) as log:
             # log2(a^x) -> x * log2(a)
-            return MathNode(
-                exp,
-                MathNode(base, kind=Kind.Log2, res_type=FloatType(32)),
-                kind=Kind.Mul,
-                res_type=log.type,
-            )
+            return MathNode(base, kind=Kind.Log2, res_type=log.type) * exp
         # log(a/b) -> log(a) - log(b)
         case MathNode(
             kind=Kind.Log2, argops=(MathNode(kind=Kind.Div, args=(a, b)),)
         ) as log:
             # replace by log(a) - log(b)
-            return MathNode(
-                MathNode(a, kind=Kind.Log2, res_type=FloatType(32)),
-                MathNode(b, kind=Kind.Log2, res_type=FloatType(32)),
-                kind=Kind.Sub,
-                res_type=log.type,
+            return MathNode(a, kind=Kind.Log2, res_type=log.type) - MathNode(
+                b, kind=Kind.Log2, res_type=log.type
             )
         # log(a*b) -> log(a) + log(b)
         case MathNode(
             kind=Kind.Log2, argops=(MathNode(kind=Kind.Mul, args=(a, b)),)
         ) as log:
-            # replace by log(a) - log(b)
-            return MathNode(
-                MathNode(a, kind=Kind.Log2, res_type=FloatType(32)),
-                MathNode(b, kind=Kind.Log2, res_type=FloatType(32)),
-                kind=Kind.Add,
-                res_type=log.type,
+            return MathNode(a, kind=Kind.Log2, res_type=log.type) + MathNode(
+                b, kind=Kind.Log2, res_type=log.type
             )
         # exp(a, log_2(x)) -> log_2(a) * x
         case MathNode(
             kind=Kind.Pow, argops=(a, MathNode(kind=Kind.Log2, args=(x,)))
         ) as exp:
-            return MathNode(
-                x,
-                MathNode(a, kind=Kind.Log2, res_type=FloatType(32)),
-                kind=Kind.Mul,
-                res_type=exp.type,
-            )
+            return MathNode(a, kind=Kind.Log2, res_type=exp.type) * x
 
 
 def symmetry(node: IRNode) -> IRNode | None:

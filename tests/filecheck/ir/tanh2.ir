@@ -1,0 +1,15 @@
+// RUN: ffcc -p approx,cse,simp,types %s | filecheck %s --match-full-lines
+// RUN: ffcc -p approx,cse,simp,types %s -f llvm | opt -S | filecheck %s --check-prefix=LLVM --match-full-lines
+
+// e2x = (e^2x)
+// res = (e2x - 1) / (e2x + 1)
+%x = var x : f32
+%2 = constant 2 : f32
+%1 = constant 1 : f32
+%e = constant e : f32
+%2x = mul %2, %x : f32
+%e2x = pow %e, %2x : f32
+%top = sub %e2x, %1 : f32
+%bot = add %e2x, %1 : f32
+%res = div %top, %bot : f32
+
