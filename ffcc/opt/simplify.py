@@ -152,49 +152,70 @@ def arith(node: IRNode) -> IRNode | None:
 
 def log_identities(node: IRNode) -> IRNode | None:
     match node:
-        # specialized on log2(2^x) -> x
+        # specialized on log_n(n^x) -> x
         case MathNode(
-            kind=Kind.Log2,
+            kind=Kind.Log,
             argops=(
                 MathNode(
                     kind=Kind.Pow,
-                    argops=(ConstantNode(value=2), exp),
+                    argops=(ConstantNode(v1), exp),
                 ),
+                ConstantNode(v2),
             ),
+        ) if (
+            v1 == v2
         ):
             return exp
-        # cover log_2(a^x) -> x * log_2(a)
+        # cover log_b(a^x) -> x * log_b(a)
         case MathNode(
-            kind=Kind.Log2,
+            kind=Kind.Log,
             argops=(
                 MathNode(
                     kind=Kind.Pow,
-                    args=(base, exp),
+                    args=(a, x),
                 ),
+                b,
             ),
         ) as log:
-            # log2(a^x) -> x * log2(a)
-            return MathNode(base, kind=Kind.Log2, res_type=log.type) * exp
+            # log_b(a^x) -> x * log_b(a)
+            return x.owner * MathNode(a, b, kind=Kind.Log, res_type=log.type)
         # log(a/b) -> log(a) - log(b)
         case MathNode(
-            kind=Kind.Log2, argops=(MathNode(kind=Kind.Div, args=(a, b)),)
+            kind=Kind.Log,
+            argops=(
+                MathNode(kind=Kind.Div, args=(a, b)),
+                base,
+            ),
         ) as log:
             # replace by log(a) - log(b)
-            return MathNode(a, kind=Kind.Log2, res_type=log.type) - MathNode(
-                b, kind=Kind.Log2, res_type=log.type
+            return MathNode(a, base, kind=Kind.Log, res_type=log.type) - MathNode(
+                b, base, kind=Kind.Log, res_type=log.type
             )
         # log(a*b) -> log(a) + log(b)
         case MathNode(
-            kind=Kind.Log2, argops=(MathNode(kind=Kind.Mul, args=(a, b)),)
+            kind=Kind.Log,
+            argops=(
+                MathNode(kind=Kind.Mul, args=(a, b)),
+                base,
+            ),
         ) as log:
-            return MathNode(a, kind=Kind.Log2, res_type=log.type) + MathNode(
-                b, kind=Kind.Log2, res_type=log.type
+            return MathNode(
+                a,
+                base,
+                kind=Kind.Log,
+                res_type=log.type,
+            ) + MathNode(
+                b,
+                base,
+                kind=Kind.Log,
+                res_type=log.type,
             )
         # exp(a, log_2(x)) -> log_2(a) * x
         case MathNode(
-            kind=Kind.Pow, argops=(a, MathNode(kind=Kind.Log2, args=(x,)))
+            kind=Kind.Pow,
+            argops=(a, MathNode(kind=Kind.Log, args=(x, base))),
         ) as exp:
-            return MathNode(a, kind=Kind.Log2, res_type=exp.type) * x
+            return x.owner * MathNode(a, base, kind=Kind.Log, res_type=exp.type)
 
 
 def symmetry(node: IRNode) -> IRNode | None:

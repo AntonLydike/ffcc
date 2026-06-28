@@ -45,7 +45,10 @@ def has_var(node: IRNode) -> bool:
 def insert_approximations(node: IRNode) -> IRNode | None:
     match node:
         # replace log2(x) -> I(x)/L - B + σ
-        case MathNode(kind=Kind.Log2, args=(x,), result=r) if has_var(x.owner):
+        case MathNode(
+            kind=Kind.Log, argops=(xop, ConstantNode(2)), result=r
+        ) if has_var(xop):
+            x = xop.result
             x_type = x.type
             r_type = r.type
             Linv = ConstantNode(2 ** -L_vals[r_type.width], x_type)
@@ -73,7 +76,13 @@ def insert_approximations(node: IRNode) -> IRNode | None:
             return BitCastOperator(
                 direction="i2f",
                 value=(L * (B - sigma))
-                + (L * MathNode(b, kind=Kind.Log2, res_type=x_type) * x),
+                + (
+                    L
+                    * MathNode(
+                        b, ConstantNode(2, x_type), kind=Kind.Log, res_type=x_type
+                    )
+                    * x
+                ),
             )
         # replace a / x -> a * F(2L * (B - σ) - I(x))
         case MathNode(kind=Kind.Div, argops=(a, x), result=r) if has_var(x):

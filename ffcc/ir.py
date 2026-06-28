@@ -18,7 +18,7 @@ class Kind(Enum):
     Sub = auto()
     Pow = auto()
     Negate = auto()
-    Log2 = auto()
+    Log = auto()
     Floor = auto()
     Ashr = auto()  # arithmetic shift rigt
     Shl = auto()  # shift left
@@ -152,7 +152,7 @@ class IRNode:
     def __eq__(self, other):
         return self is other
 
-    def __str__(self):
+    def __repr__(self):
         return f"{self.__class__.__name__}(args={self.args}, result={self.result})"
 
     def freeze(self) -> Self:
@@ -308,15 +308,15 @@ class MathNode(FoldableNode):
         super().__init__(args=args, result_type=res_type)
         self.kind = kind
 
-    def __str__(self):
+    def __repr__(self):
         return f"{self.__class__.__name__}<{self.kind.name}>(args={self.args}, result={self.result})"
 
     def evaluate(self, args: list[float | int]):
         match (self.kind, *args):
             case (Kind.Negate, a):
                 return -a
-            case (Kind.Log2, a):
-                return math.log2(a)
+            case (Kind.Log, a, b):
+                return math.log(a, b)
             case (Kind.Floor, a):
                 return math.floor(a)
             case (Kind.Pow, a, b):
@@ -353,7 +353,7 @@ class ConstantNode(ConstantLikeNode):
             replace_res_type = self.type
         return ConstantNode(new_val, replace_res_type)
 
-    def __str__(self):
+    def __repr__(self):
         return f"{self.__class__.__name__}(value={self.value}, result={self.result})"
 
     def __eq__(self, other):
@@ -376,7 +376,7 @@ class VarNode(IRNode):
         self.name = name
         self.result.name = name
 
-    def __str__(self):
+    def __repr__(self):
         return (
             f"{self.__class__.__name__}(name={repr(self.name)}, result={self.result})"
         )

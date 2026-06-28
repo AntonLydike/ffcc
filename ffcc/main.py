@@ -4,19 +4,17 @@ import sys
 import logging
 from argparse import ArgumentParser
 from dataclasses import dataclass
-from io import TextIOBase
-from typing import TextIO, Callable, ParamSpec, Any
+from typing import TextIO, Callable, Any
 
 from ffcc.ir import IRNode
 
 from ffcc.cse import cse
-from ffcc.newton import newton
 from ffcc.parse import parse_ssa
 from ffcc.print_llvm import print_llvm_func_for
 from ffcc.print import print_dag, print_ssa
 from ffcc.opt import types, simp, approx
 
-passes = {"cse": cse, "simp": simp, "approx": approx, "types": types, "newton": newton}
+passes = {"cse": cse, "simp": simp, "approx": approx, "types": types}
 
 
 def open_source(dash: TextIO) -> Callable[[str], TextIO]:

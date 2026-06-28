@@ -1,8 +1,10 @@
+import math
 import sys
 from itertools import count
 
 from ffcc.ir import (
     IRNode,
+    Kind,
     Value,
     MathNode,
     ConstantNode,
@@ -74,14 +76,16 @@ def _print_ssa_node(n: IRNode, names: dict[Value, str], out: TextIOBase):
     res = f"%{names[n.result]}"
     args = ", ".join(f"%{names[r]}" for r in n.args)
     match n:
+        case MathNode(kind=Kind.Log, args=(arg, base), type=t):
+            out.write(f"{res} = log %{names[arg]}, base=%{names[base]} : {t}\n")
         case MathNode(kind=k, type=t):
             out.write(f"{res} = {k.name.lower()} {args} : {t}\n")
         case ConstantNode(value=v, type=t):
             out.write(f"{res} = constant {v} : {t}\n")
-        case VarNode(name=n, type=t):
-            out.write(f"{res} = var {repr(n)} : {t}\n")
-        case TunableNode(name=n, hint=h, type=t):
-            out.write(f"{res} = tunable {repr(n)} = {h} : {t}\n")
+        case VarNode(name=name, type=t):
+            out.write(f"{res} = var {repr(name)} : {t}\n")
+        case TunableNode(name=name, hint=h, type=t):
+            out.write(f"{res} = tunable {repr(name)} = {h} : {t}\n")
         case BitCastOperator(direction, type=t, args=(a,)):
             out.write(f"{res} = bitcast {direction} {args} to {t}\n")
         case CastOperator(type=t, args=(a,)):
@@ -101,6 +105,16 @@ def print_dag(node: IRNode, file: TextIOBase | None = None, **kwargs) -> str | N
         file = StringIO()
 
     match node:
+        case MathNode(kind=Kind.Log, argops=(arg, ConstantNode(base))) if base == int(
+            base
+        ):
+            file.write(f"log{int(base)}(")
+            print_dag(arg, file)
+            file.write(")")
+        case MathNode(kind=Kind.Log, argops=(arg, ConstantNode(math.e))):
+            file.write("ln(")
+            print_dag(arg, file)
+            file.write(")")
         case MathNode(kind, argops):
             file.write(f"{kind.name.lower()}(")
             print_dag(argops[0], file)
@@ -109,7 +123,12 @@ def print_dag(node: IRNode, file: TextIOBase | None = None, **kwargs) -> str | N
                 print_dag(op, file)
             file.write(")")
         case ConstantNode(value):
-            file.write(f"{value}")
+            if value == math.e:
+                file.write("e")
+            elif value == math.pi:
+                file.write("pi")
+            else:
+                file.write(f"{value}")
         case VarNode(name):
             file.write(f"{name}")
         case TunableNode(name=name, hint=h):

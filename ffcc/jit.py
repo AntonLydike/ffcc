@@ -240,7 +240,7 @@ class Program:
     def eval_on_domain(
         self,
         domain: np.ndarray,
-        tunables: Sequence[float | int] = None,
+        tunables: Sequence[float | int] | None = None,
         result: np.ndarray | None = None,
     ) -> np.ndarray:
         if result is None:
