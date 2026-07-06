@@ -2,6 +2,8 @@
 
 Tool for generating fast approximations of floating point math by (ab)using the floating point representation.
 
+This tool was produced for the ICML paper "Faster Activation Functions at the Edge for Post-Training Speedups" [link](https://openreview.net/forum?id=u2o6hPE8ik).
+
 ## Usage:
 
 Basic usage (`ffcc` tool):
