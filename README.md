@@ -9,7 +9,7 @@ This tool was produced for the ICML paper "Faster Activation Functions at the Ed
 Basic usage (`ffcc` tool):
 
 ```bash
-$ ffcc -e "silu(x) = x / (1 + pow(e, x)) --approx=exp --tune=[-6,6] -o torch"
+$ ffcc -e "silu(x) = x / (1 + exp(-x)) --approx=exp --tune=[-6,6] -o torch"
 ```
 
 This should give you, after some tuning time, the following torch module:
@@ -19,10 +19,10 @@ from torch import nn, tensor
 
 
 class FastSilu(nn.Module):
-    def forward(self, x : tensor) -> tensor:
-        v0 = (1064873152.0 + (12104085.0 * x))
-        v1 = v0.type(torch.int32).view(torch.float32)
-        return (x / (1.0 + v1))
+        def forward(self, x: tensor) -> tensor:
+                v0 = (1064873152.0 + (-12104085.0 * x))
+                v1 = v0.type(torch.int32).view(torch.float32)
+                return (x / (1.0 + v1))
 ```
 
 Flags explained:

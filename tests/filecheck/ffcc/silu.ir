@@ -1,1 +1,25 @@
-// RUN: ffcc -e "slu(x) = x / (1 + exp(x))"
+// RUN: ffcc -e "silu(x) = x / (1 + exp(-x))" -o torch | filecheck %s
+// RUN: ffcc -e "silu(x) = x / (1 + exp(-x))" -o torch --approx=exp | filecheck %s --check-prefix EXP
+
+
+// CHECK-NEXT: import torch
+// CHECK-NEXT: from torch import nn, tensor
+// CHECK-EMPTY:
+// CHECK-EMPTY:
+// CHECK-NEXT: class FastSilu(nn.Module):
+// CHECK-NEXT:  def forward(self, x: tensor) -> tensor:
+// CHECK-NEXT:          v0 = (1.0 + torch.pow(2.718281828459045, -x))
+// CHECK-NEXT:          return (x / v0)
+
+
+
+// EXP-NEXT: import torch
+// EXP-NEXT: from torch import nn, tensor
+// EXP-EMPTY:
+// EXP-EMPTY:
+// EXP-NEXT: class FastSilu(nn.Module):
+// EXP-NEXT:  def forward(self, x: tensor) -> tensor:
+// EXP-NEXT:          v0 = (-12102203.161561485 * x)
+// EXP-NEXT:          v1 = (1064975337.7308671 + v0)
+// EXP-NEXT:          v2 = v1.type(torch.int32).view(torch.float32)
+// EXP-NEXT:          return (x / (1.0 + v2))

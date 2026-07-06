@@ -66,7 +66,7 @@ def print_torch(
         f"import torch\nfrom torch import nn, tensor\n\n\nclass {name}(nn.Module):\n"
     )
     file.write("\tdef forward(self, ")
-    file.write(", ".join(f"{v.name} : tensor" for v in vars))
+    file.write(", ".join(f"{v.name}: tensor" for v in vars))
     file.write(") -> tensor:\n\t\t")
 
     lines: list[str] = []

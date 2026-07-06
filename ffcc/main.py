@@ -8,7 +8,6 @@ from ffcc.opt.simplify import simp
 from ffcc.opt_main import formatter, open_source, passes
 from ffcc.parse import Expression, _parse_type, parse_expr, parse_ssa
 from ffcc.opt import approximate
-from ffcc.tune import tune
 
 
 def parse_domain(dom: str) -> tuple[float, float]:
@@ -83,6 +82,8 @@ def main():
     )
 
     if args.tune:
+        from ffcc.tune import tune
+
         tune(exp, rewritten_expr, args.tune)
 
     formatter[args.output](
