@@ -1,0 +1,1 @@
+// RUN: ffcc -e "slu(x) = x / (1 + exp(x))"

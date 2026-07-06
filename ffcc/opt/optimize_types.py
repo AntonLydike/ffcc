@@ -80,4 +80,4 @@ def optimize_types(node: IRNode) -> IRNode | RewriteResultModifiedOp | None:
             )
 
 
-types = Rewriter((optimize_types,))
+types = Rewriter((optimize_types,), None)

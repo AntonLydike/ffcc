@@ -1,12 +1,13 @@
 # RUN: python %s | filecheck %s
 import numpy as np
-from ffcc.ir import FloatType, MathNode, ConstantNode, Kind, VarNode, TunableNode
+
+from ffcc.ir import ConstantNode, FloatType, TunableNode, VarNode
 from ffcc.jit import Program
 
 f32 = FloatType(32)
 
-x = VarNode('x', f32)
-t = TunableNode('t', 1, f32)
+x = VarNode("x", f32)
+t = TunableNode("t", 1, f32)
 node = x + (t * ConstantNode(3.14159, f32))
 
 p = Program(node)
@@ -17,9 +18,7 @@ sigmas = np.array([1], dtype=np.float32)
 # individual call
 print(p.dll.my_func_scalar.argtypes)
 # CHECK: [<class 'ctypes.c_float'>, <class 'ctypes.c_float'>]
-print(
-    'my_func(0, 1) = {}'.format(p(0, 1))
-)
+print("my_func(0, 1) = {}".format(p(0, 1)))
 # CHECK-NEXT: my_func(0, 1) = 3.141590118408203
 
 # evaluate on [-1, 1]
@@ -41,16 +40,21 @@ results = p.eval_on_domain(domain, (1,))
 # CHECK-NEXT:  5.1314893 5.14159  ]
 
 
-print('eval_on_domain [1, 2] -> {}'.format(results))
+print("eval_on_domain [1, 2] -> {}".format(results))
 
 # relative error:
-actual_results = np.ones_like(domain)*2
+actual_results = np.ones_like(domain) * 2
 print(
-    'max_rel_err [1, 2] = {:.8f}'.format(p.max_relative_error(actual_results, domain, tunables=(0.1, )))
+    "max_rel_err [1, 2] = {:.8f}".format(
+        p.max_relative_error(actual_results, domain, tunables=(0.1,))
+    )
 )
 # CHECK-NEXT: max_rel_err [1, 2] = 0.34292048
 
 print(
-    'max_rel_err [1, 2], eps = 1 = {:.8f}'.format(p.max_relative_error(actual_results, domain, tunables=(0.1, ), epsilon=1))
+    "max_rel_err [1, 2], eps = 1 = {:.8f}".format(
+        p.max_relative_error(actual_results, domain, tunables=(0.1,), epsilon=1)
+    )
 )
 # CHECK-NEXT: max_rel_err [1, 2], eps = 1 = 0.22861366
+

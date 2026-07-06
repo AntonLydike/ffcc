@@ -1,5 +1,5 @@
-// RUN: ffcc -p simp,approx,cse,simp %s | filecheck %s
-// RUN: ffcc -p simp,approx,cse,simp %s -f llvm | opt -S | filecheck %s --check-prefix=LLVM
+// RUN: ffcc-opt -p simp,approx{exp,log},simp,cse %s | filecheck %s
+// RUN: ffcc-opt -p simp,approx{exp,log},simp,cse %s -f llvm | opt -S | filecheck %s --check-prefix=LLVM
 
 %x = var x : f32
 %e = constant e : f32
@@ -10,32 +10,29 @@
 %log2x = log2 %1px : f32
 %res = div %log2x, %log2e : f32
 
-// CHECK:      %0 = constant 0.6931471805599453 : f32
-// CHECK-NEXT: %sigma = tunable 'sigma' = -126.9549534 : f32
-// CHECK-NEXT: %1 = constant 1.1920928955078125e-07 : f32
+// CHECK:      %B = tunable 'B' = -87.99846800732924 : f32
+// CHECK-NEXT: %L = tunable 'L' = 8.262958294867817e-08 : f32
 // CHECK-NEXT: %one = constant 1 : f32
-// CHECK-NEXT: %sigma1 = tunable 'sigma' = 1064975337.7308671 : f32
-// CHECK-NEXT: %2 = constant 12102203.161561485 : f32
+// CHECK-NEXT: %LB = tunable 'LB' = 1064975337.7308671 : f32
+// CHECK-NEXT: %L1 = tunable 'L' = 12102203.161561485 : f32
 // CHECK-NEXT: %x = var 'x' : f32
-// CHECK-NEXT: %3 = mul %2, %x : f32
-// CHECK-NEXT: %4 = add %sigma1, %3 : f32
-// CHECK-NEXT: %5 = bitcast i2f %4 to f32
-// CHECK-NEXT: %6 = add %one, %5 : f32
-// CHECK-NEXT: %7 = bitcast f2i %6 to i32
-// CHECK-NEXT: %8 = mul %1, %7 : f32
-// CHECK-NEXT: %9 = add %sigma, %8 : f32
-// CHECK-NEXT: %10 = mul %0, %9 : f32
+// CHECK-NEXT: %0 = mul %L1, %x : f32
+// CHECK-NEXT: %1 = add %LB, %0 : f32
+// CHECK-NEXT: %2 = bitcast i2f %1 to f32
+// CHECK-NEXT: %3 = add %one, %2 : f32
+// CHECK-NEXT: %4 = bitcast f2i %3 to i32
+// CHECK-NEXT: %5 = mul %L, %4 : f32
+// CHECK-NEXT: %6 = add %B, %5 : f32
 
-// LLVM:      define float @my_func(float %x, float %sigma, float %sigma_1) {
-// LLVM-NEXT:   %1 = fmul float 0x4167154760000000, %x
-// LLVM-NEXT:   %2 = fadd float %sigma_1, %1
+// LLVM:      define float @my_func(float %x, float %B, float %L, float %L_1, float %LB) {
+// LLVM-NEXT:   %1 = fmul float %L_1, %x
+// LLVM-NEXT:   %2 = fadd float %LB, %1
 // LLVM-NEXT:   %cast = fptosi float %2 to i32
 // LLVM-NEXT:   %3 = bitcast i32 %cast to float
 // LLVM-NEXT:   %4 = fadd float 1.000000e+00, %3
 // LLVM-NEXT:   %5 = bitcast float %4 to i32
 // LLVM-NEXT:   %cast_1 = sitofp i32 %5 to float
-// LLVM-NEXT:   %6 = fmul float 0x3E80000000000000, %cast_1
-// LLVM-NEXT:   %7 = fadd float %sigma, %6
-// LLVM-NEXT:   %8 = fmul float 0x3FE62E4300000000, %7
-// LLVM-NEXT:   ret float %8
+// LLVM-NEXT:   %6 = fmul float %L, %cast_1
+// LLVM-NEXT:   %7 = fadd float %B, %6
+// LLVM-NEXT:   ret float %7
 // LLVM-NEXT: }

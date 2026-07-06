@@ -1,5 +1,5 @@
-// RUN: ffcc -p approx,cse,simp,types %s | filecheck %s --match-full-lines
-// RUN: ffcc -p approx,cse,simp,types %s -f llvm | opt -S | filecheck %s --check-prefix=LLVM --match-full-lines
+// RUN: ffcc-opt -p approx{exp},simp,cse %s | filecheck %s --match-full-lines
+// RUN: ffcc-opt -p approx{exp},simp,cse %s -f llvm | opt -S | filecheck %s --check-prefix=LLVM --match-full-lines
 
 // e2x = (e^2x)
 // res = (e2x - 1) / (e2x + 1)
@@ -13,34 +13,27 @@
 %bot = add %e2x, %1 : f32
 %res = div %top, %bot : f32
 
-// CHECK-NEXT: %sigma = tunable 'sigma' = 1064975338 : i32
-// CHECK-NEXT: %0 = constant 24204406.32312297 : f32
+// CHECK-NEXT: %LB = tunable 'LB' = 1064975337.7308671 : f32
+// CHECK-NEXT: %L = tunable 'L' = 24204406.32312297 : f32
 // CHECK-NEXT: %x = var 'x' : f32
-// CHECK-NEXT: %1 = mul %0, %x : f32
-// CHECK-NEXT: %2 = add %sigma, %1 : i32
-// CHECK-NEXT: %3 = bitcast i2f %2 to f32
-// CHECK-NEXT: %4 = constant 1 : f32
-// CHECK-NEXT: %top = sub %3, %4 : f32
-// CHECK-NEXT: %sigma1 = tunable 'sigma' = 2129950675 : i32
-// CHECK-NEXT: %5 = add %4, %3 : f32
-// CHECK-NEXT: %6 = bitcast f2i %5 to i32
-// CHECK-NEXT: %7 = sub %sigma1, %6 : i32
-// CHECK-NEXT: %8 = bitcast i2f %7 to f32
-// CHECK-NEXT: %9 = mul %top, %8 : f32
+// CHECK-NEXT: %0 = mul %L, %x : f32
+// CHECK-NEXT: %1 = add %LB, %0 : f32
+// CHECK-NEXT: %2 = bitcast i2f %1 to f32
+// CHECK-NEXT: %3 = constant 1 : f32
+// CHECK-NEXT: %top = sub %2, %3 : f32
+// CHECK-NEXT: %4 = add %3, %2 : f32
+// CHECK-NEXT: %res = div %top, %4 : f32
 
 // LLVM-NEXT: ; ModuleID = '<stdin>'
 // LLVM-NEXT: source_filename = "<stdin>"
-// LLVM-EMPTY: 
-// LLVM-NEXT: define float @my_func(float %x, i32 %sigma, i32 %sigma_1) {
-// LLVM-NEXT:   %1 = fmul float 0x4177154760000000, %x
-// LLVM-NEXT:   %cast = fptosi float %1 to i32
-// LLVM-NEXT:   %2 = add i32 %sigma, %cast
-// LLVM-NEXT:   %3 = bitcast i32 %2 to float
+// LLVM-EMPTY:
+// LLVM-NEXT: define float @my_func(float %x, float %L, float %LB) {
+// LLVM-NEXT:   %1 = fmul float %L, %x
+// LLVM-NEXT:   %2 = fadd float %LB, %1
+// LLVM-NEXT:   %cast = fptosi float %2 to i32
+// LLVM-NEXT:   %3 = bitcast i32 %cast to float
 // LLVM-NEXT:   %top = fsub float %3, 1.000000e+00
 // LLVM-NEXT:   %4 = fadd float 1.000000e+00, %3
-// LLVM-NEXT:   %5 = bitcast float %4 to i32
-// LLVM-NEXT:   %6 = sub i32 %sigma_1, %5
-// LLVM-NEXT:   %7 = bitcast i32 %6 to float
-// LLVM-NEXT:   %8 = fmul float %top, %7
-// LLVM-NEXT:   ret float %8
+// LLVM-NEXT:   %res = fdiv float %top, %4
+// LLVM-NEXT:   ret float %res
 // LLVM-NEXT: }

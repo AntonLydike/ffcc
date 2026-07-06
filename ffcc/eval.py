@@ -16,17 +16,16 @@ from ffcc.helper import CASTS
 T = TypeVar("T", bound=np.ndarray | float)
 
 
-def evaluate(node: IRNode, assignment: dict[Value, T]) -> T:
-    try:
-        for p in node.walk(reverse=True):
-            if p.result in assignment:
-                continue
+def evaluate(node: IRNode, assignment: dict[Value, T | float]) -> T | float:
+    for p in node.walk(reverse=True):
+        if p.result in assignment:
+            continue
+        try:
             assignment[p.result] = evaluate_node(p, [assignment[arg] for arg in p.args])
-
-        return assignment[node.result]
-    except TypeError:
-        print("Error at", assignment)
-        raise
+        except TypeError:
+            print("Error at", p, assignment)
+            raise
+    return assignment[node.result]
 
 
 def partial_evaluation(node: IRNode, assignment: dict[Value, T]) -> T:
@@ -49,8 +48,8 @@ def evaluate_node(node: IRNode, vals: Sequence[T | float]) -> T | float:
     match node, vals:
         case ConstantLikeNode(value=val), ():
             return val
-        case MathNode(kind=Kind.Log2), (val,):
-            return np.log2(val)
+        case MathNode(kind=Kind.Log), (val, base):
+            return np.log(val) / np.log(base)
         case MathNode(kind=Kind.Negate), (val,):
             return -val
         case MathNode(kind=Kind.Floor), (val,):

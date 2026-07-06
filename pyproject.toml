@@ -8,7 +8,9 @@ license = "AGPL-3.0-or-later"
 requires-python = ">=3.12"
 dependencies = [
     "aalib",
+    "torch>=2.12.1",
     "z3-solver>=4.15.0.0",
+    "numpy>=2.2.5",
 ]
 
 [project.optional-dependencies]
@@ -17,24 +19,29 @@ dev = [
     "filecheck>=1.0.2",
     "lit>=18.1.8",
 ]
-jit = [
-    "numpy>=2.2.5",
-]
 plot = [
     "matplotlib>=3.10.3",
     "pyqt5>=5.15.11",
 ]
 
 [project.scripts]
-ffcc = "ffcc.main:main"
+ffcc-opt = "ffcc.opt_main:main"
 ffcc-plot = "ffcc.plot:plot_main"
-ffcc-synth = "ffcc.synth:main"
+ffcc = "ffcc.main:main"
 
 [tool.uv]
 package = true
 
 [tool.uv.sources]
 aalib = { git = "https://github.com/AntonLydike/aalib" }
+torch = [
+  { index = "pytorch-cpu" },
+]
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
 
 [tool.setuptools.packages]
 find = {}

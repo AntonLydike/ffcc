@@ -1,3 +1,17 @@
+// RUN: ffcc-opt -p approx{exp} %s | filecheck %s
+
 %x = var x : f32
 %e = constant e : f32
 %res = pow %e, %x : f32
+
+// CHECK:      %LB = tunable 'LB' = 1064975337.7308671 : f32
+// CHECK-NEXT: %L = tunable 'L' = 8388608 : f32
+// CHECK-NEXT: %e = constant 2.718281828459045 : f32
+// CHECK-NEXT: %0 = constant 2 : f32
+// CHECK-NEXT: %1 = log %e, base=%0 : f32
+// CHECK-NEXT: %2 = mul %L, %1 : f32
+// CHECK-NEXT: %x = var 'x' : f32
+// CHECK-NEXT: %3 = mul %2, %x : f32
+// CHECK-NEXT: %4 = add %LB, %3 : f32
+// CHECK-NEXT: %5 = bitcast i2f %4 to f32
+

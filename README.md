@@ -2,7 +2,32 @@
 
 Tool for generating fast approximations of floating point math by (ab)using the floating point representation.
 
-Not yet ready for use.
+## Usage:
+
+Basic usage (`ffcc` tool):
+
+```bash
+$ ffcc -e "silu(x) = x / (1 + pow(e, x)) --approx=exp --tune=[-6,6] -o torch"
+```
+
+This should give you, after some tuning time, the following torch module:
+```python
+import torch
+from torch import nn, tensor
+
+
+class FastSilu(nn.Module):
+    def forward(self, x : tensor) -> tensor:
+        v0 = (1064873152.0 + (12104085.0 * x))
+        v1 = v0.type(torch.int32).view(torch.float32)
+        return (x / (1.0 + v1))
+```
+
+Flags explained:
+- `-e $expr` provides the input expression to approximate
+- `-approx=exp` tells the tool to approximate exponentiation, `log` and `div` can be added as well (note that `div` support is experimental)
+- `-tune=[-6,6]` tells the tool to perform gradient-descent based constant tuning on the domain $[-6,6]$
+- `-o torch` informs the program that the expected output format is a pytorch module
 
 ## Development Environment:
 
@@ -12,6 +37,8 @@ The python dependencies are managed through `uv`. Setting everything up usually 
 running a combination of `uv venv; uv sync --all-extrast; source venv/bin/activate`.
 
 To run tests, use `lit tests/filecheck`, there are no pytests yet.
+
+There is an `ffcc-opt` tool available for testing.
 
 ## License:
 

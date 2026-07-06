@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 import sys
 from io import TextIOBase
 import ctypes
@@ -287,12 +288,28 @@ def print_llvm_func_for(
                     external_funcs.add(
                         f"declare {_t(t,vectorise)} @llvm.pow.{vec_prefix}{str(base.type)}({_t(base.type, vectorise)}, {_t(exp.type, vectorise)})"
                     )
-            case MathNode(kind=Kind.Log2, result=r, args=(a,), type=FloatType() as ft):
-                a = _ensure_type(a, ft)
-                intr = f"@llvm.log2.{vec_prefix}{str(ft)}"
+            case MathNode(
+                kind=Kind.Log,
+                result=r,
+                argops=(a, ConstantNode(base)),
+                type=FloatType() as ft,
+            ) if base in (math.e, 2, 10):
+                basestr = {math.e: "", 10: "10", 2: "2"}
+                a = _ensure_type(a.result, ft)
+                intr = f"@llvm.log{basestr[base]}.{vec_prefix}{str(ft)}"
                 ins(r, "call", ft, f"{intr}(", a.type, a, ")")
                 external_funcs.add(
                     f"declare {_t(ft, vectorise)} {intr}({_t(a.type, vectorise)})"
+                )
+            case MathNode(
+                kind=Kind.Log,
+                result=r,
+                argops=(a, ConstantNode(base)),
+                type=FloatType() as ft,
+            ):
+                # FIXME: implement arbitrary bases
+                raise NotImplementedError(
+                    "Only log base e, 2 and 10 are supported in llvm backend"
                 )
             case MathNode(kind=k, result=r):
                 ins(r, "unknown op", k.name.lower(), res_t=r.type)

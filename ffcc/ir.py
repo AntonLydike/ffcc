@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import copy
+from dataclasses import dataclass
 import math
 import ctypes
 from enum import Enum, auto
@@ -35,13 +36,11 @@ def _check_arg(arg: Any) -> IRNode | Value:
     raise ValueError(f"Incompatible argument {arg} (of type {type(arg)})", arg)
 
 
+@dataclass(frozen=True)
 class Type:
     __match_args__ = ("width",)
 
     width: int
-
-    def __init__(self, width: int):
-        self.width = width
 
     def __eq__(self, other):
         return type(self) is type(other) and self.width == other.width
@@ -311,7 +310,7 @@ class MathNode(FoldableNode):
     def __repr__(self):
         return f"{self.__class__.__name__}<{self.kind.name}>(args={self.args}, result={self.result})"
 
-    def evaluate(self, args: list[float | int]):
+    def evaluate(self, args: Sequence[float | int]) -> float | int:
         match (self.kind, *args):
             case (Kind.Negate, a):
                 return -a
@@ -329,10 +328,12 @@ class MathNode(FoldableNode):
                 return a * b
             case (Kind.Div, a, b):
                 return a / b
-            case (Kind.Shl, a, b):
+            case (Kind.Shl, a, b) if isinstance(a, int) and isinstance(b, int):
                 return a << b
-            case (Kind.Ashr, a, b):
+            case (Kind.Ashr, a, b) if isinstance(a, int) and isinstance(b, int):
                 return a >> b
+            case other:
+                raise RuntimeError("Unkown kind of math operation:", other)
 
 
 class ConstantNode(ConstantLikeNode):
@@ -409,6 +410,9 @@ class TunableNode(ConstantLikeNode):
         if replace_res_type is None:
             replace_res_type = self.type
         return TunableNode(self.name, new_val, replace_res_type)
+
+    def __repr__(self):
+        return f"{self.__class__.__name__}(args={self.args}, hint={repr(self.hint)}, result={self.result})"
 
 
 class BitCastOperator(FoldableNode):

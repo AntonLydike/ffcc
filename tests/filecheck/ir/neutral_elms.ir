@@ -1,4 +1,4 @@
-// RUN: ffcc --verbose --log-to-out -p simp %s | filecheck %s
+// RUN: ffcc-opt --verbose --log-to-out -p simp %s | filecheck %s
 
 %zero = constant 0 : f32
 %one = constant 1 : f32

@@ -1,10 +1,10 @@
+from typing import cast
 from ffcc.helper import prod
 from ffcc.ir import (
     IRNode,
     MathNode,
     Kind,
     ConstantNode,
-    FloatType,
     IntType,
     ConstantLikeNode,
     FoldableNode,
@@ -287,6 +287,26 @@ def constant_shoving(node: IRNode) -> IRNode | None:
             return MathNode(
                 cst, MathNode(x, ncst, kind=k1, res_type=t), kind=k1, res_type=t
             )
+        case MathNode(
+            kind=Kind.Mul,
+            argops=(
+                a,
+                MathNode(
+                    kind=(Kind.Mul | Kind.Div) as k, argops=(ConstantLikeNode() as c, b)
+                ),
+            ),
+        ):
+            if k is Kind.Div:
+                return c * (a / b)
+            return c * (a * b)
+        # a * (-b) -> -a * b
+        case MathNode(
+            kind=(Kind.Mul | Kind.Div) as k,
+            argops=(a, MathNode(kind=Kind.Negate, argops=(b,))),
+        ):
+            if k is Kind.Mul:
+                return (-a) * b
+            return (-a) / b
 
 
 def constant_fold(node: IRNode) -> IRNode | None:
@@ -297,6 +317,7 @@ def constant_fold(node: IRNode) -> IRNode | None:
             evaluate=evaluate,
             type=res_t,
         ) if all(isinstance(op, ConstantLikeNode) for op in argops):
+            argops = cast(list[ConstantLikeNode], argops)
             vals = [op.value for op in argops]
             result = evaluate(vals)
             if result is not None:
@@ -352,14 +373,13 @@ def constant_fold(node: IRNode) -> IRNode | None:
                 MathNode(kind=k2, argops=(ConstantLikeNode() as c2, x), type=t2),
             ),
             type=t,
-            evaluate=evaluate,
         ) if (
             k1 == k2
             and k1 in (Kind.Mul, Kind.Add)
             and not isinstance(x, ConstantLikeNode)
         ):
             return MathNode(
-                ConstantLikeNode.make(evaluate(c1.value, c2.value), t, (c1, c2)),
+                ConstantLikeNode.make(node.evaluate((c1.value, c2.value)), t, (c1, c2)),
                 x,
                 kind=k1,
                 res_type=t,
