@@ -60,7 +60,7 @@ def main():
 
     if args.expression is not None:
         typ = _parse_type(0, args.type, 0, args.type)
-        exp = parse_expr(args.expression)
+        exp = parse_expr(args.expression, typ)
     else:
         ir = parse_ssa(args.input.read())
         if args.input is not sys.stdin:

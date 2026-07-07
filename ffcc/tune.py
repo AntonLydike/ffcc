@@ -74,8 +74,8 @@ class TunableIRModule(nn.Module):
         for tunable, param in self.tunables.items():
             tunable.owner.hint = param.data.item()
 
-    def forward(self, *vals: tensor) -> tensor:
-        var_to_val: dict[Value, torch.tensor | nn.Parameter | float] = dict(
+    def forward(self, *vals: torch.Tensor):
+        var_to_val: dict[Value, torch.Tensor | nn.Parameter | float] = dict(
             itertools.chain(zip(self.vars, vals), self.tunables.items())
         )
         for node in self.ir.walk(reverse=True):
@@ -109,8 +109,8 @@ class TunableIRModule(nn.Module):
         return var_to_val[self.ir.result]
 
     def _do_bitcast(
-        self, arg: tensor, direction: Literal["i2f", "f2i"], dest_t: Type
-    ) -> tensor:
+        self, arg: torch.Tensor, direction: Literal["i2f", "f2i"], dest_t: Type
+    ) -> torch.Tensor:
         src_t = IntType(dest_t.width) if direction == "i2f" else FloatType(dest_t.width)
         if (src_t, dest_t) not in self._casts:
             self._casts[(src_t, dest_t)] = make_bc(
@@ -124,14 +124,16 @@ def tune(
     approximation: Expression,
     domain: tuple[float, float],
     samples: int = int(1e5),
-) -> float:
+):
     """
     Takes a base expression and an approximation with tunable variables, and changes the
     tunables to a local minima found by doing gradient descent using pytorch.
-
-    Returns the mean-squared-error of the final expression.
     """
     dtype = to_torch_type(base_exp.expr.result.type)
+    if base_exp.expr.result.type.width != 32:
+        print(
+            "Gradient descent for bitwidths other than 32 is untested", file=sys.stderr
+        )
     domain_t = torch.linspace(*domain, samples, dtype=dtype)
 
     model = TunableIRModule(
@@ -152,7 +154,8 @@ def tune(
     epochs = 600
     t0 = time.time()
     with torch.no_grad():
-        loss = initial_loss = criterion(model(domain_t), baseline)
+        model_out = model(domain_t)
+        loss = initial_loss = criterion(model_out, baseline)
 
     for epoch in range(epochs):
         optimizer.zero_grad()
@@ -171,37 +174,17 @@ def tune(
             )
     # assign trained params back to tunable params:
     model.assign_back()
+    # print MSE loss improvement to stderr
     if sys.stderr.isatty():
         print(
             f"\nConstant tuning improved MSE from {initial_loss:.8f} to {loss:.8f}",
             file=sys.stderr,
         )
-    return loss
 
 
 # --------------------------------
 # Backwards Helper:
 # --------------------------------
-
-
-def with_backwards(gradients: Callable[[torch.Tensor], torch.Tensor]):
-    def wrapper(
-        fn: Callable[[torch.Tensor], torch.Tensor],
-    ) -> Callable[[torch.Tensor], torch.Tensor]:
-        class CustomFunction(torch.autograd.Function):
-            @staticmethod
-            def forward(ctx, x: torch.Tensor):
-                ctx.save_for_backward(x)
-                return fn(x)
-
-            @staticmethod
-            def backward(ctx, grad_output: torch.Tensor) -> torch.Tensor:
-                (x,) = ctx.saved_tensors
-                return gradients(x) * grad_output
-
-        return CustomFunction.apply
-
-    return wrapper
 
 
 def make_bc(src_t, dest_t) -> Callable[[torch.Tensor], torch.Tensor]:
