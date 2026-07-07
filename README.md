@@ -9,7 +9,7 @@ This tool was produced for the ICML paper "Faster Activation Functions at the Ed
 Basic usage (`ffcc` tool):
 
 ```bash
-$ ffcc -e "silu(x) = x / (1 + exp(-x)) --approx=exp --tune=[-6,6] -o torch"
+$ ffcc -e "silu(x) = x / (1 + exp(-x))" --approx=exp --tune=[-6,6] -o torch
 ```
 
 This should give you, after some tuning time, the following torch module:
@@ -27,16 +27,16 @@ class FastSilu(nn.Module):
 
 Flags explained:
 - `-e $expr` provides the input expression to approximate
-- `-approx=exp` tells the tool to approximate exponentiation, `log` and `div` can be added as well (note that `div` support is experimental)
-- `-tune=[-6,6]` tells the tool to perform gradient-descent based constant tuning on the domain $[-6,6]$
-- `-o torch` informs the program that the expected output format is a pytorch module
+- `-approx=exp` approximates exponentiation (`log` and `div` can be added as well, though `div` support is experimental)
+- `-tune=[-6,6]` performs gradient-descent based constant tuning on the domain $[-6,6]$
+- `-o torch` prints the resulting code as a pytorch module
 
 ## Development Environment:
 
 There's a `flake.nix` file for all nixos users.
 
 The python dependencies are managed through `uv`. Setting everything up usually involves
-running a combination of `uv venv; uv sync --all-extrast; source venv/bin/activate`.
+running a combination of `uv venv; uv sync --all-extras; source .venv/bin/activate`.
 
 To run tests, use `lit tests/filecheck`, there are no pytests yet.
 

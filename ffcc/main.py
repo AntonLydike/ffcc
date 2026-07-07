@@ -62,7 +62,7 @@ def main():
         typ = _parse_type(0, args.type, 0, args.type)
         exp = parse_expr(args.expression)
     else:
-        ir = parse_ssa(args.input)
+        ir = parse_ssa(args.input.read())
         if args.input is not sys.stdin:
             args.input.close()
         vars = tuple(set(v for v in ir.walk() if isinstance(v, VarNode)))

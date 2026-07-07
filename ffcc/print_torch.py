@@ -1,3 +1,4 @@
+from ast import Constant
 from collections.abc import Sequence
 from io import TextIOBase
 from math import exp
@@ -65,9 +66,9 @@ def print_torch(
     file.write(
         f"import torch\nfrom torch import nn, tensor\n\n\nclass {name}(nn.Module):\n"
     )
-    file.write("\tdef forward(self, ")
+    file.write("    def forward(self, ")
     file.write(", ".join(f"{v.name}: tensor" for v in vars))
-    file.write(") -> tensor:\n\t\t")
+    file.write(") -> tensor:\n        ")
 
     lines: list[str] = []
 
@@ -86,6 +87,8 @@ def print_torch(
 
     elem = node
     for elem in node.walk(reverse=True):
+        if elem.result in expr_to_str:
+            continue
         args = [expr_to_str[arg] for arg in elem.args]
         res = elem.result
         match elem:
@@ -125,6 +128,10 @@ def print_torch(
                 if len(op) + len(arg) > line_width_limit:
                     arg = make_var(x)
                 expr_to_str[res] = f"{arg}{op}"
+        # make sure things that are used multiple times are always stored in variables
+        if len(res.uses) > 1 and not isinstance(elem, ConstantLikeNode):
+            print(f"op {elem} has more than 1 use")
+            make_var(res)
 
     lines.append(f"return {expr_to_str[elem.result]}\n")
-    file.write("\n\t\t".join(lines))
+    file.write("\n        ".join(lines))

@@ -7,9 +7,13 @@ resolution-markers = [
 ]
 
 [[package]]
-name = "aalib"
-version = "0.1.0"
-source = { git = "https://github.com/AntonLydike/aalib#935f2ef936d054931df6413e2c6d966f9a0bfe3f" }
+name = "al-aalib"
+version = "0.1.1"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/f6/24/8891f969ee9fb511c47c5409977c618bba3360552041c8d79fe6deae7fc4/al_aalib-0.1.1.tar.gz", hash = "sha256:40cf0ca1fbead9c634cd84425ca0c0b3dcc64ac0111c65323cfb1ca36832f1b2", size = 18842, upload-time = "2026-07-06T22:40:58.21Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/8f/3b/bad95daf06201e989b5d418b4f6e3f8e80c98d48220e5845ea17feaca389/al_aalib-0.1.1-py3-none-any.whl", hash = "sha256:f4d39d4bfd6df9aa49e8280fd6c6ba2aa6287d09848206e87456aa60d8c592b9", size = 8783, upload-time = "2026-07-06T22:40:57.396Z" },
+]
 
 [[package]]
 name = "black"
@@ -111,7 +115,7 @@ name = "ffcc"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
-    { name = "aalib" },
+    { name = "al-aalib" },
     { name = "numpy" },
     { name = "torch", version = "2.12.1", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "sys_platform == 'darwin'" },
     { name = "torch", version = "2.12.1+cpu", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "sys_platform != 'darwin'" },
@@ -136,7 +140,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "aalib", git = "https://github.com/AntonLydike/aalib" },
+    { name = "al-aalib", specifier = ">=0.1.1" },
     { name = "black", marker = "extra == 'dev'", specifier = ">=25.1.0" },
     { name = "filecheck", marker = "extra == 'dev'", specifier = ">=1.0.2" },
     { name = "lit", marker = "extra == 'dev'", specifier = ">=18.1.8" },

@@ -2,12 +2,11 @@ import itertools
 import math
 import sys
 import time
-from typing import Any, Callable, Literal, cast
+from typing import Any, Callable, Literal
 
-from aalib.colors import FMT
 import torch
-import torch.nn as nn
-from aalib.progress import progress, simple_progress
+from aalib.colors import Color
+from aalib.progress import simple_progress
 from torch import nn, tensor
 
 from ffcc.eval import evaluate
@@ -124,7 +123,7 @@ def tune(
     base_exp: Expression,
     approximation: Expression,
     domain: tuple[float, float],
-    samples: int = 100_000,
+    samples: int = int(1e5),
 ) -> float:
     """
     Takes a base expression and an approximation with tunable variables, and changes the
@@ -148,11 +147,12 @@ def tune(
     )
 
     optimizer = torch.optim.Adam(model.parameters(), lr=1e6)
-    scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=800, gamma=0.1)
+    scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=200, gamma=0.1)
 
-    epochs = 10000
+    epochs = 600
     t0 = time.time()
-    loss = 0
+    with torch.no_grad():
+        loss = initial_loss = criterion(model(domain_t), baseline)
 
     for epoch in range(epochs):
         optimizer.zero_grad()
@@ -160,18 +160,22 @@ def tune(
         loss.backward()
         optimizer.step()
         scheduler.step()
-        if (epoch) % 100 == 0 and sys.stderr.isatty():
+        if (epoch) % 10 == 9 and sys.stderr.isatty():
             simple_progress(
                 epoch + 1,
                 epochs,
                 t0,
-                f"loss={loss:.8f}, lr={scheduler.get_last_lr()[0]:8.4f}",
-                color=FMT.ORANGE,
+                f"loss={loss:.8f}, lr=1e{math.floor(math.log10(scheduler.get_last_lr()[0]))}",
+                color=Color.YELLOW,
                 file=sys.stderr,
             )
     # assign trained params back to tunable params:
     model.assign_back()
-    print()
+    if sys.stderr.isatty():
+        print(
+            f"\nConstant tuning improved MSE from {initial_loss:.8f} to {loss:.8f}",
+            file=sys.stderr,
+        )
     return loss
 
 

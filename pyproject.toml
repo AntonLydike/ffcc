@@ -7,7 +7,7 @@ authors = [{name = "Anton Lydike", email="me@antonlydike.de"}]
 license = "AGPL-3.0-or-later"
 requires-python = ">=3.12"
 dependencies = [
-    "aalib",
+    "al-aalib>=0.1.1",
     "torch>=2.12.1",
     "z3-solver>=4.15.0.0",
     "numpy>=2.2.5",
@@ -33,7 +33,6 @@ ffcc = "ffcc.main:main"
 package = true
 
 [tool.uv.sources]
-aalib = { git = "https://github.com/AntonLydike/aalib" }
 torch = [
   { index = "pytorch-cpu" },
 ]

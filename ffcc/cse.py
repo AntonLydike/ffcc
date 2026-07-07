@@ -24,6 +24,7 @@ def structural_eq(n1: IRNode, n2: IRNode) -> bool:
             return False
     if all(structural_eq(a1, a2) for a1, a2 in zip(n1.argops, n2.argops, strict=True)):
         return True
+    return False
 
 
 def cse(node: IRNode) -> IRNode | None:
@@ -52,4 +53,11 @@ def cse(node: IRNode) -> IRNode | None:
                 worklist.append(op)
                 unique_subexprs.append(op)
 
-    return root.args[0].owner
+    # remove dead ops left in uses:
+    node = root.argops[0]
+    node.result.uses.remove(root)
+
+    for op in root.argops[0].walk():
+        op.result.uses = set(use for use in op.result.uses if use in unique_subexprs)
+
+    return node

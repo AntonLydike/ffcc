@@ -10,7 +10,7 @@ from ffcc.ir import (
 )
 from ffcc.opt.rewriter import RewriteArgs, Rewriter
 
-SIGMA_HINT = 0.0450466
+SIGMA_HINT = 0.0435
 
 L_vals = {
     16: 10,
