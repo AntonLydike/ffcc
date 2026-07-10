@@ -9,7 +9,7 @@
 %div = div %one, %pow : f32
 
 
-// CHECK:      %LB = tunable 'LB' = 1064975338 : i32
+// CHECK:      %LB = tunable 'LB' = 1064988312 : i32
 // CHECK-NEXT: %L = tunable 'L' = -4194304.0 : f32
 // CHECK-NEXT: %x = var 'x' : f32
 // CHECK-NEXT: %0 = constant 2 : f32

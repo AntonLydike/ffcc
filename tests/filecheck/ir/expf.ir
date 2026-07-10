@@ -4,7 +4,7 @@
 %e = constant e : f32
 %res = pow %e, %x : f32
 
-// CHECK:      %LB = tunable 'LB' = 1064975337.7308671 : f32
+// CHECK:      %LB = tunable 'LB' = 1064988311.552 : f32
 // CHECK-NEXT: %L = tunable 'L' = 8388608 : f32
 // CHECK-NEXT: %e = constant 2.718281828459045 : f32
 // CHECK-NEXT: %0 = constant 2 : f32

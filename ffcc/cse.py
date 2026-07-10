@@ -27,7 +27,7 @@ def structural_eq(n1: IRNode, n2: IRNode) -> bool:
     return False
 
 
-def cse(node: IRNode) -> IRNode | None:
+def cse(node: IRNode) -> IRNode:
     # mark unique subexpressions we found
     unique_subexprs: list[IRNode] = []
     # elements to check
@@ -57,7 +57,9 @@ def cse(node: IRNode) -> IRNode | None:
     node = root.argops[0]
     node.result.uses.remove(root)
 
-    for op in root.argops[0].walk():
-        op.result.uses = set(use for use in op.result.uses if use in unique_subexprs)
+    all_exprs = set(unique_subexprs)
+    all_exprs.add(node)
+    for n in node.walk():
+        n.result.uses = set(u for u in n.result.uses if u in all_exprs)
 
     return node

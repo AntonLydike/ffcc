@@ -57,9 +57,7 @@ def insert_approximations(node: IRNode, conf: Arguments) -> IRNode | None:
             kind=Kind.Log,
             argops=(xop, ConstantNode(2)),
             result=r,
-        ) if (
-            has_var(xop) and conf.log
-        ):
+        ) if has_var(xop) and conf.log:
             x = xop.result
             x_type = x.type
             r_type = r.type

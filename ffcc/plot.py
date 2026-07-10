@@ -26,7 +26,6 @@ def plot_eval(
     hide_legend: bool = False,
     tune: tuple[int | float, ...] = None,
 ) -> plt.Axes:
-
     if logx:
         domain = np.logspace(
             math.log10(x_domain[0]),

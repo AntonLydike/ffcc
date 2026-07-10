@@ -173,7 +173,7 @@ def print_llvm_func_for(
         if to_externals:
             external_funcs.add(" ".join(parts))
         else:
-            print(f'{indent}{" ".join(parts)}', file=file)
+            print(f"{indent}{' '.join(parts)}", file=file)
         # cast result to type
         if res_t is not None and result is not None:
             casted_t = _ensure_type(result, result.type, val_t=res_t)
@@ -286,7 +286,7 @@ def print_llvm_func_for(
                         ")",
                     )
                     external_funcs.add(
-                        f"declare {_t(t,vectorise)} @llvm.pow.{vec_prefix}{str(base.type)}({_t(base.type, vectorise)}, {_t(exp.type, vectorise)})"
+                        f"declare {_t(t, vectorise)} @llvm.pow.{vec_prefix}{str(base.type)}({_t(base.type, vectorise)}, {_t(exp.type, vectorise)})"
                     )
             case MathNode(
                 kind=Kind.Log,

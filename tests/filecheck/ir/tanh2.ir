@@ -13,7 +13,7 @@
 %bot = add %e2x, %1 : f32
 %res = div %top, %bot : f32
 
-// CHECK-NEXT: %LB = tunable 'LB' = 1064975337.7308671 : f32
+// CHECK-NEXT: %LB = tunable 'LB' = 1064988311.552 : f32
 // CHECK-NEXT: %L = tunable 'L' = 24204406.32312297 : f32
 // CHECK-NEXT: %x = var 'x' : f32
 // CHECK-NEXT: %0 = mul %L, %x : f32

@@ -15,12 +15,12 @@ $ ffcc -e "silu(x) = x / (1 + exp(-x))" --approx=exp --tune=[-6,6] -o torch
 This should give you, after some tuning time, the following torch module:
 ```python
 import torch
-from torch import nn, tensor
+from torch import nn, Tensor
 
 
 class FastSilu(nn.Module):
-        def forward(self, x: tensor) -> tensor:
-                v0 = (1064873152.0 + (-12104085.0 * x))
+        def forward(self, x: Tensor) -> Tensor:
+                v0 = (1064873152.0 + (-12104086.0 * x))
                 v1 = v0.type(torch.int32).view(torch.float32)
                 return (x / (1.0 + v1))
 ```

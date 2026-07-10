@@ -1,5 +1,6 @@
 from argparse import ArgumentParser
 import ast
+from logging import getLogger
 import sys
 
 from ffcc.cse import cse
@@ -9,6 +10,8 @@ from ffcc.opt_main import config_log, formatter, open_source, passes
 from ffcc.parse import Expression, _parse_type, parse_expr, parse_ssa
 from ffcc.opt import approximate
 
+LOGGER = getLogger(__name__)
+
 
 def parse_domain(dom: str) -> tuple[float, float]:
     """Parse a domain given as [a, b] into two floats"""
@@ -16,9 +19,9 @@ def parse_domain(dom: str) -> tuple[float, float]:
         raise ValueError("Domain must be of format [a, b]", dom)
     lit = ast.literal_eval(dom)
     assert len(lit) == 2, "Domain literal must contain exactly two numbers"
-    assert all(
-        isinstance(v, (float, int)) for v in lit
-    ), "Domain literal must contain exactly two numbers"
+    assert all(isinstance(v, (float, int)) for v in lit), (
+        "Domain literal must contain exactly two numbers"
+    )
     return tuple(lit)
 
 
@@ -78,6 +81,7 @@ def main():
 
     rewritten_ir = exp.expr.copy()
     if args.approximate:
+        LOGGER.info(args.approximate)
         approx_pass = approximate.approx.with_args(args.approximate)
         simp_pass = simp.with_args(simp.args_t())
         rewritten_ir: IRNode = cse(simp_pass(approx_pass(cse(simp_pass(rewritten_ir)))))

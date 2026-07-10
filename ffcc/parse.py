@@ -273,7 +273,7 @@ class ParseError(BaseException):
 
     def __str__(self) -> str:
         pointer = "^"
-        return f"ParseError in line {self.lineno}:\n{self.line}\n{pointer:>{self.offset+1}}\n{self.message}"
+        return f"ParseError in line {self.lineno}:\n{self.line}\n{pointer:>{self.offset + 1}}\n{self.message}"
 
 
 @dataclass
@@ -338,7 +338,7 @@ class Token:
 # Combined master regex for the unified parser state
 TOKEN_REGEX = re.compile(
     r"(?P<NUMBER>\d+(?:\.\d+)?)"
-    r"|(?P<FUNCTION>(?:pow|exp|ln|log<\d+>))(?=\s*\()"
+    r"|(?P<FUNCTION>(?:pow|exp|ln|log\d+))(?=\s*\()"
     r"|(?P<IDENTIFIER>[a-zA-Z_][a-zA-Z0-9_]*)"
     r"|(?P<PLUS>\+)"
     r"|(?P<MINUS>-)"
@@ -369,12 +369,14 @@ class ExpressionParser:
         # Prime the first token
         self._current_token: Token = self._next_token()
 
-    def _raise_error(self, message: str, position: int) -> NoReturn:
+    def _raise_error(
+        self, message: str, position: int, ex: Exception | None = None
+    ) -> NoReturn:
         """Helper to format and throw your exact ParseError structure."""
         # For a single expression string, we treat it as line 1.
         raise ParseError(
             lineno=1, line=self.expression, message=message, offset=position
-        )
+        ) from ex
 
     def _next_token(self) -> Token:
         """Consumes internal string positions and returns the next valid Token."""
@@ -467,6 +469,21 @@ class ExpressionParser:
                     return MathNode(
                         *arg_val,
                         ConstantNode(math.e, self.typ),
+                        kind=Kind.Log,
+                        res_type=self.typ,
+                    ).result
+                if func_tok.value.startswith("log"):
+                    try:
+                        base = float(func_tok.value.removeprefix("log"))
+                    except ValueError as ex:
+                        self._raise_error(
+                            f"Invalid log base: {func_tok.value.removeprefix('log')}",
+                            func_tok.start_pos,
+                            ex,
+                        )
+                    return MathNode(
+                        *arg_val,
+                        ConstantNode(base, self.typ),
                         kind=Kind.Log,
                         res_type=self.typ,
                     ).result

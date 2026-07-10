@@ -1,15 +1,16 @@
+import math
 from typing import cast
+
 from ffcc.helper import prod
 from ffcc.ir import (
-    IRNode,
-    MathNode,
-    Kind,
-    ConstantNode,
-    IntType,
     ConstantLikeNode,
+    ConstantNode,
     FoldableNode,
+    IntType,
+    IRNode,
+    Kind,
+    MathNode,
 )
-
 from ffcc.opt.rewriter import Rewriter
 
 
@@ -142,10 +143,11 @@ def neutral_elements(node: IRNode) -> IRNode | None:
 def arith(node: IRNode) -> IRNode | None:
     match node:
         # a + (-b) or (-b)+a -> a - b
-        case MathNode(
-            kind=Kind.Add, argops=(a, MathNode(kind=Kind.Negate, argops=(b,)))
-        ) | MathNode(
-            kind=Kind.Add, argops=(MathNode(kind=Kind.Negate, argops=(b,)), a)
+        case (
+            MathNode(kind=Kind.Add, argops=(a, MathNode(kind=Kind.Negate, argops=(b,))))
+            | MathNode(
+                kind=Kind.Add, argops=(MathNode(kind=Kind.Negate, argops=(b,)), a)
+            )
         ):
             return MathNode(a, b, kind=Kind.Sub, res_type=node.result.type)
 
@@ -162,43 +164,47 @@ def log_identities(node: IRNode) -> IRNode | None:
                 ),
                 ConstantNode(v2),
             ),
-        ) if (
-            v1 == v2
-        ):
+        ) if v1 == v2:
             return exp
         # cover log_b(a^x) -> x * log_b(a)
-        case MathNode(
-            kind=Kind.Log,
-            argops=(
-                MathNode(
-                    kind=Kind.Pow,
-                    args=(a, x),
+        case (
+            MathNode(
+                kind=Kind.Log,
+                argops=(
+                    MathNode(
+                        kind=Kind.Pow,
+                        args=(a, x),
+                    ),
+                    b,
                 ),
-                b,
-            ),
-        ) as log:
+            ) as log
+        ):
             # log_b(a^x) -> x * log_b(a)
             return x.owner * MathNode(a, b, kind=Kind.Log, res_type=log.type)
         # log(a/b) -> log(a) - log(b)
-        case MathNode(
-            kind=Kind.Log,
-            argops=(
-                MathNode(kind=Kind.Div, args=(a, b)),
-                base,
-            ),
-        ) as log:
+        case (
+            MathNode(
+                kind=Kind.Log,
+                argops=(
+                    MathNode(kind=Kind.Div, args=(a, b)),
+                    base,
+                ),
+            ) as log
+        ):
             # replace by log(a) - log(b)
             return MathNode(a, base, kind=Kind.Log, res_type=log.type) - MathNode(
                 b, base, kind=Kind.Log, res_type=log.type
             )
         # log(a*b) -> log(a) + log(b)
-        case MathNode(
-            kind=Kind.Log,
-            argops=(
-                MathNode(kind=Kind.Mul, args=(a, b)),
-                base,
-            ),
-        ) as log:
+        case (
+            MathNode(
+                kind=Kind.Log,
+                argops=(
+                    MathNode(kind=Kind.Mul, args=(a, b)),
+                    base,
+                ),
+            ) as log
+        ):
             return MathNode(
                 a,
                 base,
@@ -211,11 +217,28 @@ def log_identities(node: IRNode) -> IRNode | None:
                 res_type=log.type,
             )
         # exp(a, log_2(x)) -> log_2(a) * x
-        case MathNode(
-            kind=Kind.Pow,
-            argops=(a, MathNode(kind=Kind.Log, args=(x, base))),
-        ) as exp:
+        case (
+            MathNode(
+                kind=Kind.Pow,
+                argops=(a, MathNode(kind=Kind.Log, args=(x, base))),
+            ) as exp
+        ):
             return x.owner * MathNode(a, base, kind=Kind.Log, res_type=exp.type)
+
+
+def change_of_basis(node: IRNode) -> IRNode | None:
+    """
+    Replace log_base(e) -> log_2(e) / log_2(base)
+    """
+    match node:
+        case MathNode(
+            argops=(e, ConstantLikeNode(base, type=typ)),
+            kind=Kind.Log,
+        ) if base != 2:
+            t = node.result.type
+            return MathNode(
+                e, ConstantNode(2, typ).result, kind=Kind.Log, res_type=t
+            ) / ConstantNode(math.log2(base), t)
 
 
 def symmetry(node: IRNode) -> IRNode | None:
@@ -324,14 +347,16 @@ def constant_fold(node: IRNode) -> IRNode | None:
                 return ConstantLikeNode.make(result, res_t, argops)
         # c1 ∘ (c2 ∘ x) -> (c1 ∘ c2) -> x
         # for ∘ is + or *
-        case MathNode(
-            kind=k1,
-            argops=(
-                ConstantLikeNode(value=v1) as c1,
-                MathNode(kind=k2, argops=(ConstantLikeNode(value=v2) as c2, x)),
-            ),
-            type=res_t,
-        ) as math_node if k1 == k2 and k1 in (Kind.Add, Kind.Mul):
+        case (
+            MathNode(
+                kind=k1,
+                argops=(
+                    ConstantLikeNode(value=v1) as c1,
+                    MathNode(kind=k2, argops=(ConstantLikeNode(value=v2) as c2, x)),
+                ),
+                type=res_t,
+            ) as math_node
+        ) if k1 == k2 and k1 in (Kind.Add, Kind.Mul):
             return MathNode(
                 ConstantLikeNode.make(math_node.evaluate((v1, v2)), c1.type, (c1, c2)),
                 x,
@@ -392,6 +417,7 @@ simp = Rewriter(
         constant_fold,
         neutral_elements,
         log_identities,
+        change_of_basis,
         div_by_constant,
         symmetry,
         arith,

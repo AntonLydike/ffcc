@@ -6,7 +6,7 @@
 %mxs = negate %xs : f32
 %r = pow %e, %mxs : f32
 
-// CHECK:      %LB = tunable 'LB' = 1064975337.7308671 : f32
+// CHECK:      %LB = tunable 'LB' = 1064988311.552 : f32
 // CHECK-NEXT: %L = tunable 'L' = -12102203.161561485 : f32
 // CHECK-NEXT: %x = var 'x' : f32
 // CHECK-NEXT: %xs = mul %x, %x : f32

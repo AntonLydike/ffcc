@@ -365,7 +365,7 @@ def instantiate_node_as_jit(
         cflags += shlex.split(os.environ["NIX_LDFLAGS_FOR_TARGET"])
 
     command = (CLANG, *cflags, "-lm", kernel, harness, "-shared", "-o", shared_obj)
-    LOGGER.info(f'Compile command: {" ".join(command)}')
+    LOGGER.info(f"Compile command: {' '.join(command)}")
 
     if DEBUG_JIT_ENABLE is not None:
         input(

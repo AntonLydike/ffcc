@@ -13,7 +13,7 @@
 %btm = add %ex, %emx : f32
 %res = div %top, %btm : f32
 
-// CHECK-NEXT: %LB = tunable 'LB' = 1064975337.7308671 : f32
+// CHECK-NEXT: %LB = tunable 'LB' = 1064988311.552 : f32
 // CHECK-NEXT: %L = tunable 'L' = 12102203.161561485 : f32
 // CHECK-NEXT: %x = var 'x' : f32
 // CHECK-NEXT: %0 = mul %L, %x : f32

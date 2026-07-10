@@ -6,14 +6,12 @@
 %one = constant 1 : f32
 %ex = pow %e, %x : f32
 %1px = add %one, %ex : f32
-%log2e = log2 %e : f32
-%log2x = log2 %1px : f32
-%res = div %log2x, %log2e : f32
+%res = ln %1px : f32
 
-// CHECK:      %B = tunable 'B' = -87.99846800732924 : f32
+// CHECK:      %B = tunable 'B' = -87.9995400287587 : f32
 // CHECK-NEXT: %L = tunable 'L' = 8.262958294867817e-08 : f32
 // CHECK-NEXT: %one = constant 1 : f32
-// CHECK-NEXT: %LB = tunable 'LB' = 1064975337.7308671 : f32
+// CHECK-NEXT: %LB = tunable 'LB' = 1064988311.552 : f32
 // CHECK-NEXT: %L1 = tunable 'L' = 12102203.161561485 : f32
 // CHECK-NEXT: %x = var 'x' : f32
 // CHECK-NEXT: %0 = mul %L1, %x : f32

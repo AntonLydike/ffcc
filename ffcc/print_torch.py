@@ -1,19 +1,19 @@
-from collections.abc import Sequence
-from io import TextIOBase
 import math
 import sys
+from collections.abc import Sequence
+from io import TextIOBase
 
 from ffcc.ir import (
     BitCastOperator,
     ConstantLikeNode,
     FloatType,
+    IntType,
     IRNode,
     Kind,
+    MathNode,
     Type,
     Value,
     VarNode,
-    MathNode,
-    IntType,
 )
 from ffcc.parse import Expression
 
@@ -128,7 +128,6 @@ def print_torch(
                 expr_to_str[res] = f"{arg}{op}"
         # make sure things that are used multiple times are always stored in variables
         if len(res.uses) > 1 and not isinstance(elem, ConstantLikeNode):
-            print(f"op {elem} has more than 1 use")
             make_var(res)
 
     lines.append(f"return {expr_to_str[elem.result]}\n")

@@ -7,6 +7,8 @@ from argparse import ArgumentParser
 from dataclasses import dataclass
 from typing import TextIO, Callable, Any
 
+from numpy import vectorize
+
 from ffcc.opt.rewriter import Rewriter
 from ffcc.print_torch import print_torch
 from ffcc.ir import IRNode
@@ -163,7 +165,7 @@ class Main:
 
         ns = parser.parse_args(args=cli[1:])
         return Main(
-            input=ns.input if "input" in ns else ns.expression,
+            input=ns.expression or ns.input,
             out=ns.output,
             passes=ns.passes,
             out_formatter=formatter[ns.format],
@@ -177,28 +179,36 @@ class Main:
 
     def apply(self):
         config_log(verbose=self.verbose, log_to_out=self.log_to_out, out=self.out)
-
-        if self.input == sys.stdin and sys.stdin.isatty():
-            sys.stderr.write(">> Waiting for input...\n")
-
-        if self.split:
-            parts = []
-            lineno = 1
-            for part in self.input.read().split(self.split_on):
-                parts.append((part, lineno))
-                lineno += part.count("\n")
+        parts: list[IRNode] = []
+        if isinstance(self.input, Expression):
+            parts = [self.input.expr]
         else:
-            parts = [(self.input.read(), 1)]
+            if self.input == sys.stdin and sys.stdin.isatty():
+                sys.stderr.write(">> Waiting for input...\n")
 
-        for i, (part, lineno) in enumerate(parts):
-            ir = parse_ssa(part, lineno)
+            if self.split:
+                parts = []
+                lineno = 1
+                for part in self.input.read().split(self.split_on):
+                    parts.append(parse_ssa(part, lineno))
+                    lineno += part.count("\n")
+            else:
+                parts = [parse_ssa(self.input.read(), 1)]
 
+        for i, ir in enumerate(parts):
             if i > 0:
                 self.out.write(f"\n// {self.split_on}\n\n")
 
             for p_i, p in enumerate(self.passes):
                 if self.print_between_passes and p_i > 0:
-                    self.out_formatter(ir, self.out)
+                    self.out_formatter(
+                        ir,
+                        self.out,
+                        vectorize=self.vectorize,
+                        expression=(
+                            self.input if isinstance(self.input, Expression) else None
+                        ),
+                    )
                     self.out.write(f"\n// {self.split_on}\n\n")
 
                 ir = p(ir)
