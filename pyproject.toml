@@ -1,6 +1,6 @@
 [project]
 name = "ffcc"
-version = "0.1.1"
+version = "0.1.2"
 description = "Compiler for fast floating-point approximations"
 readme = "README.md"
 authors = [{name = "Anton Lydike", email="me@antonlydike.de"}]

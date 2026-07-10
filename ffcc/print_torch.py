@@ -1,7 +1,5 @@
-from ast import Constant
 from collections.abc import Sequence
 from io import TextIOBase
-from math import exp
 import math
 import sys
 
@@ -64,11 +62,11 @@ def print_torch(
 
     # write preamble
     file.write(
-        f"import torch\nfrom torch import nn, tensor\n\n\nclass {name}(nn.Module):\n"
+        f"import torch\nfrom torch import nn, Tensor\n\n\nclass {name}(nn.Module):\n"
     )
     file.write("    def forward(self, ")
-    file.write(", ".join(f"{v.name}: tensor" for v in vars))
-    file.write(") -> tensor:\n        ")
+    file.write(", ".join(f"{v.name}: Tensor" for v in vars))
+    file.write(") -> Tensor:\n        ")
 
     lines: list[str] = []
 

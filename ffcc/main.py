@@ -5,7 +5,7 @@ import sys
 from ffcc.cse import cse
 from ffcc.ir import IRNode, VarNode
 from ffcc.opt.simplify import simp
-from ffcc.opt_main import formatter, open_source, passes
+from ffcc.opt_main import config_log, formatter, open_source, passes
 from ffcc.parse import Expression, _parse_type, parse_expr, parse_ssa
 from ffcc.opt import approximate
 
@@ -33,7 +33,6 @@ def main():
         default=sys.stdin,
         type=open_source(sys.stdin),
     )
-
     parser.add_argument(
         "--type",
         default="f32",
@@ -55,8 +54,17 @@ def main():
     parser.add_argument(
         "--expr-name", help="Name of the function or module that is returned"
     )
+    parser.add_argument(
+        "-v",
+        "--verbose",
+        action="store_true",
+        default=False,
+        help="Print more information",
+    )
 
     args = parser.parse_args()
+    if args.verbose:
+        config_log(args.verbose, False)
 
     if args.expression is not None:
         typ = _parse_type(0, args.type, 0, args.type)

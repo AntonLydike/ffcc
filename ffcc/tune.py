@@ -1,4 +1,5 @@
 import itertools
+from logging import getLogger
 import math
 import sys
 import time
@@ -24,6 +25,8 @@ from ffcc.ir import (
     VarNode,
 )
 from ffcc.parse import Expression
+
+LOGGER = getLogger(__name__)
 
 LOGOPS = {
     math.e: torch.log,
@@ -63,11 +66,12 @@ class TunableIRModule(nn.Module):
             t.result: nn.Parameter(tensor([t.hint], dtype=to_torch_type(t.type)))
             for t in tunables
         }
+        self.initial_params = tuple(t.item() for t in self.tunables.values())
         self._casts = {}
         self._params = nn.ParameterList(self.tunables.values())
 
-    def real_params(self) -> list[float]:
-        return [e.item() for e in self.tunables.values()]
+    def param_values(self) -> tuple[float, ...]:
+        return tuple(e.item() for e in self.tunables.values())
 
     def assign_back(self):
         """assign the trained parameters back to the tunables of the expression"""
@@ -131,9 +135,7 @@ def tune(
     """
     dtype = to_torch_type(base_exp.expr.result.type)
     if base_exp.expr.result.type.width != 32:
-        print(
-            "Gradient descent for bitwidths other than 32 is untested", file=sys.stderr
-        )
+        LOGGER.warning("Gradient descent for bitwidths other than 32 is untested")
     domain_t = torch.linspace(*domain, samples, dtype=dtype)
 
     model = TunableIRModule(
@@ -172,14 +174,14 @@ def tune(
                 color=Color.YELLOW,
                 file=sys.stderr,
             )
-    # assign trained params back to tunable params:
-    model.assign_back()
-    # print MSE loss improvement to stderr
     if sys.stderr.isatty():
-        print(
-            f"\nConstant tuning improved MSE from {initial_loss:.8f} to {loss:.8f}",
-            file=sys.stderr,
-        )
+        print(file=sys.stderr)
+    # assign trained params back to tunable params:
+    LOGGER.info(
+        f"Tuned parameters {model.initial_params} -> {model.param_values()}, "
+        f"improving MSE from {initial_loss:.8f} to {loss:.8f}"
+    )
+    model.assign_back()
 
 
 # --------------------------------

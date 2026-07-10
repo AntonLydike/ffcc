@@ -112,14 +112,13 @@ wheels = [
 
 [[package]]
 name = "ffcc"
-version = "0.1.0"
+version = "0.1.1"
 source = { editable = "." }
 dependencies = [
     { name = "al-aalib" },
     { name = "numpy" },
     { name = "torch", version = "2.12.1", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "sys_platform == 'darwin'" },
     { name = "torch", version = "2.12.1+cpu", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "sys_platform != 'darwin'" },
-    { name = "z3-solver" },
 ]
 
 [package.optional-dependencies]
@@ -148,7 +147,6 @@ requires-dist = [
     { name = "numpy", specifier = ">=2.2.5" },
     { name = "pyqt5", marker = "extra == 'plot'", specifier = ">=5.15.11" },
     { name = "torch", specifier = ">=2.12.1", index = "https://download.pytorch.org/whl/cpu" },
-    { name = "z3-solver", specifier = ">=4.15.0.0" },
 ]
 provides-extras = ["dev", "plot"]
 
@@ -681,18 +679,4 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/f6/cc/6253133b5bb138fc3306cebfbda2c520f545d36b5be2c7255cc528bb45d6/typing_extensions-4.16.0.tar.gz", hash = "sha256:dc983d19a509c94dba722ee6abd33940f7c05a89e243c47e907eb4db6f1a43e5", size = 113555, upload-time = "2026-07-02T08:40:05.92Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/49/d3/b8441a820a491ddfc024b0b0cf0393375b75ea13866d9c66727e54c2fc80/typing_extensions-4.16.0-py3-none-any.whl", hash = "sha256:481caa481374e813c1b176ada14e97f1f67a4539ce9cfeb3f350d78d6370c2e8", size = 45571, upload-time = "2026-07-02T08:40:04.659Z" },
-]
-
-[[package]]
-name = "z3-solver"
-version = "4.15.0.0"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/dc/ea/d44ca4e86a186b76e2f7787ba2a68e15ee1ab9e66262575e0f4d2aa95560/z3_solver-4.15.0.0.tar.gz", hash = "sha256:31012fdbaceb92667fd7e338de8b06b41d60c99bf6a3b8ec197de352372f05f1", size = 5036122, upload-time = "2025-05-10T01:15:48.056Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/30/f5/885e60f104fa9419812afee7b9db0805fd3b8c0fc1ba8783fef9a6c6e140/z3_solver-4.15.0.0-py3-none-macosx_13_0_arm64.whl", hash = "sha256:f39d07f6df4c8c09df594f1c9d2bb8b424805033a94725bfd535e7eca13eacfc", size = 37481256, upload-time = "2025-05-10T01:15:21.684Z" },
-    { url = "https://files.pythonhosted.org/packages/5c/bf/d5ee29b77f8a15c3f9b72c891766bb699ebc89883d25e0c49618c8f4081a/z3_solver-4.15.0.0-py3-none-macosx_13_0_x86_64.whl", hash = "sha256:83e82ed14073e72ca62bd3833866a9457df124448054a0c9d36db55e2f5baac6", size = 40300289, upload-time = "2025-05-10T01:15:27.572Z" },
-    { url = "https://files.pythonhosted.org/packages/9a/d3/bd7828479c0592280290a24b350a23abb460115824874adc3f902748b3dd/z3_solver-4.15.0.0-py3-none-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:214d833c2c0959aed3387e35ca36a1bfdfc443f11403d6aaf61ba346b5e21ed3", size = 29491842, upload-time = "2025-05-10T01:15:30.283Z" },
-    { url = "https://files.pythonhosted.org/packages/2e/08/553023f73d5571f6d15d851621640bfc21103ac582845bb49c106fcc57e6/z3_solver-4.15.0.0-py3-none-manylinux_2_34_aarch64.whl", hash = "sha256:f90adbb6987493828c9b8381481eaa3eb3efcdc69d326d4dd341da20deaefd31", size = 27481981, upload-time = "2025-05-10T01:15:36.23Z" },
-    { url = "https://files.pythonhosted.org/packages/1d/d1/7b19c1a333c5f9d9d20d25833f670972f725a5c3449b87ce897c17a70d76/z3_solver-4.15.0.0-py3-none-win32.whl", hash = "sha256:cf119f1b95f0c0c6a82fce365336c8887e2f557c5b5b9f370a184aa80d164e1c", size = 13342345, upload-time = "2025-05-10T01:15:40.261Z" },
-    { url = "https://files.pythonhosted.org/packages/71/dc/fa9bf8cb5a10a108befd5818c9a76e06d7ef65af66493b616002110b66c9/z3_solver-4.15.0.0-py3-none-win_amd64.whl", hash = "sha256:f1d923506654f39834196908ff579c5555b65e2d6140e515dc2d0e43c9218b2f", size = 16405669, upload-time = "2025-05-10T01:15:42.632Z" },
 ]
