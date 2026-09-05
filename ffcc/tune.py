@@ -86,10 +86,12 @@ class TunableIRModule(nn.Module):
     def param_values(self) -> tuple[float, ...]:
         return tuple(e.item() for e in self.tunables.values())
 
-    def assign_back(self):
-        """assign the trained parameters back to the tunables of the expression"""
-        for tunable, param in self.tunables.items():
-            tunable.owner.hint = param.data.item()
+    def freeze(self):
+        """Replace the trained tunables with plain constants of their final values."""
+        for value, param in self.tunables.items():
+            value.replace_with(
+                ConstantNode(param.data.item(), value.owner.type).result
+            )
 
     def forward(self, *vals: torch.Tensor):
         return self._eval(vals, to_torch_type(self.ir.result.type))
@@ -174,10 +176,11 @@ def tune(
 ):
     """
     Tune the tunables of `approximation` to minimize the MSE against
-    `base_exp` over `domain` with Adam. The parameters of the lowest-loss
-    epoch (measured in native precision) are kept, since the reported loss
-    is quantized for sub-f32 targets and the final epoch can sit on a worse
-    rounding pattern than an earlier one.
+    `base_exp` over `domain` with Adam, then freeze them into plain
+    constants, so `approximation` is left with no tunables. The parameters
+    of the lowest-loss epoch (measured in native precision) are kept, since
+    the reported loss is quantized for sub-f32 targets and the final epoch
+    can sit on a worse rounding pattern than an earlier one.
     """
     width = base_exp.expr.result.type.width
     dtype = to_torch_type(base_exp.expr.result.type)
@@ -252,7 +255,7 @@ def tune(
         f"Tuned parameters {model.initial_params} -> {model.param_values()}, "
         f"improving MSE from {initial_loss:.8f} to {best_loss:.8f}"
     )
-    model.assign_back()
+    model.freeze()
 
 
 # --------------------------------

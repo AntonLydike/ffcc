@@ -4,7 +4,7 @@ from logging import getLogger
 import sys
 
 from ffcc.cse import cse
-from ffcc.ir import ConstantNode, IRNode, TunableNode, VarNode
+from ffcc.ir import IRNode, VarNode
 from ffcc.opt.simplify import simp
 from ffcc.opt_main import config_log, formatter, open_source, passes
 from ffcc.parse import Expression, _parse_type, parse_expr, parse_ssa
@@ -103,15 +103,6 @@ def main():
         from ffcc.tune import tune
 
         tune(exp, rewritten_expr, args.tune)
-        # tune() wrote the trained values back into the tunables' hints, but
-        # the fold preserves tunables (their priority outranks constants'),
-        # so convert them to plain constants by hand; the full fold that
-        # follows then collapses the now-constant expression.
-        for node in tuple(rewritten_expr.expr.walk()):
-            if isinstance(node, TunableNode):
-                node.result.replace_with(
-                    ConstantNode(node.hint, node.type).result
-                )
         rewritten_ir = cse(simp_pass(rewritten_ir))
 
     formatter[args.output](
