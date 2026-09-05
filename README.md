@@ -20,8 +20,8 @@ from torch import nn, Tensor
 
 class FastSilu(nn.Module):
         def forward(self, x: Tensor) -> Tensor:
-                v0 = (-12104087.321284886 * x)
-                v1 = (1064872480.0625 + v0)
+                v0 = (-12104097.420150172 * x)
+                v1 = (1064872529.46875 + v0)
                 v2 = v1.type(torch.int32).view(torch.float32)
                 return (x / (1.0 + v2))
 ```
@@ -38,6 +38,10 @@ rate works across float widths. For sub-f32 targets (e.g. f16), gradients
 are computed through an f32 surrogate of the bitcast graph: the f16 forward
 is exact, and the f32 surrogate's analytic backward avoids the underflow
 that zeroing f16 gradients (and thus breaking Adam) would cause.
+
+Tuning runs Adam (lr=1e-3, no decay) for 600 epochs. Because the
+native-precision loss is quantized for sub-f32 targets, the run keeps the
+parameters of the lowest-loss epoch rather than the final ones.
 
 ## Development Environment:
 

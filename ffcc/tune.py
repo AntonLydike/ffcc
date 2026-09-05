@@ -169,10 +169,21 @@ def tune(
     approximation: Expression,
     domain: tuple[float, float],
     samples: int = int(1e5),
+    record: list | None = None,
+    lr: float = 1e-3,
+    step_size: int = 200,
+    gamma: float = 1.0,
+    best: bool = True,
 ):
     """
     Takes a base expression and an approximation with tunable variables, and changes the
     tunables to a local minima found by doing gradient descent using pytorch.
+
+    gamma=1.0 disables the StepLR decay. With best=True (the default) the
+    reported (native-precision) loss is checked every epoch and the
+    parameters of the best epoch are kept, rather than the final ones --
+    the reported loss is quantized for sub-f32 targets, so the final
+    parameters can sit on a worse rounding pattern than an earlier epoch.
     """
     width = base_exp.expr.result.type.width
     dtype = to_torch_type(base_exp.expr.result.type)
@@ -201,8 +212,10 @@ def tune(
     ).to(grad_dtype)
     domain_g = domain_t.to(grad_dtype)
 
-    optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
-    scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=200, gamma=0.1)
+    optimizer = torch.optim.Adam(model.parameters(), lr=lr)
+    scheduler = torch.optim.lr_scheduler.StepLR(
+        optimizer, step_size=step_size, gamma=gamma
+    )
 
     def reported_loss():
         with torch.no_grad():
@@ -212,15 +225,14 @@ def tune(
     epochs = 600
     t0 = time.time()
     loss = initial_loss = reported_loss()
-    for epoch in range(epochs):
-        optimizer.zero_grad()
-        out = model._eval((domain_g,), grad_dtype, surrogate)
-        loss_g = criterion(out, baseline)
-        loss_g.backward()
-        optimizer.step()
-        scheduler.step()
-        if (epoch) % 10 == 9 and sys.stderr.isatty():
-            loss = reported_loss()
+    if best:
+        best_loss = loss
+        best_params = [p.detach().clone() for p in model.parameters()]
+    if record is not None:
+        record.append(initial_loss)
+
+    def progress():
+        if sys.stderr.isatty():
             simple_progress(
                 epoch + 1,
                 epochs,
@@ -229,9 +241,35 @@ def tune(
                 color=Color.YELLOW,
                 file=sys.stderr,
             )
+
+    for epoch in range(epochs):
+        optimizer.zero_grad()
+        out = model._eval((domain_g,), grad_dtype, surrogate)
+        loss_g = criterion(out, baseline)
+        loss_g.backward()
+        optimizer.step()
+        scheduler.step()
+        if best or record is not None:
+            loss = reported_loss()
+            if best and loss < best_loss:
+                best_loss = loss
+                best_params = [p.detach().clone() for p in model.parameters()]
+            if record is not None:
+                record.append(loss)
+            if (epoch) % 10 == 9:
+                progress()
+        elif (epoch) % 10 == 9:
+            loss = reported_loss()
+            progress()
     if sys.stderr.isatty():
         print(file=sys.stderr)
-    loss = reported_loss()
+    if best:
+        with torch.no_grad():
+            for p, v in zip(model.parameters(), best_params):
+                p.copy_(v)
+        loss = best_loss
+    else:
+        loss = reported_loss()
     # assign trained params back to tunable params:
     LOGGER.info(
         f"Tuned parameters {model.initial_params} -> {model.param_values()}, "
