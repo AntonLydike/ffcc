@@ -51,6 +51,8 @@ The python dependencies are managed through `uv`. Setting everything up usually 
 running a combination of `uv venv; uv sync --all-extras; source .venv/bin/activate`.
 
 To run tests, use `lit tests/filecheck`, there are no pytests yet.
+The `jit/*` tests additionally need a C toolchain: `clang`, `lld` and
+the OpenMP headers (`libomp-dev` on Debian).
 
 There is an `ffcc-opt` tool available for testing.
 
