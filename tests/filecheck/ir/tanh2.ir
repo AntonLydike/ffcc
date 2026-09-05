@@ -13,8 +13,8 @@
 %bot = add %e2x, %1 : f32
 %res = div %top, %bot : f32
 
-// CHECK-NEXT: %s1 = tunable 's1' = 1064988311.552 : f32
-// CHECK-NEXT: %s2 = tunable 's2' = 24204406.32312297 : f32
+// CHECK-NEXT: %s1 = tunable 's1' = 1064988300.0 : f32
+// CHECK-NEXT: %s2 = tunable 's2' = 24204406.0 : f32
 // CHECK-NEXT: %x = var 'x' : f32
 // CHECK-NEXT: %0 = mul %s2, %x : f32
 // CHECK-NEXT: %1 = add %s1, %0 : f32

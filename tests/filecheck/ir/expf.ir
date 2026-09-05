@@ -13,7 +13,7 @@
 // CHECK-NEXT: %s2 = tunable 's2' = 1.0 : f32
 // CHECK-NEXT: %4 = mul %x, %s2 : f32
 // CHECK-NEXT: %5 = mul %4, %2 : f32
-// CHECK-NEXT: %e = constant 2.718281828459045 : f32
+// CHECK-NEXT: %e = constant 2.7182817 : f32
 // CHECK-NEXT: %6 = constant 2 : f32
 // CHECK-NEXT: %7 = log %e, base=%6 : f32
 // CHECK-NEXT: %8 = mul %5, %7 : f32

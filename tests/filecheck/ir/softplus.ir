@@ -8,12 +8,12 @@
 %1px = add %one, %ex : f32
 %res = ln %1px : f32
 
-// CHECK:      %0 = constant 0.6931471805599453 : f32
+// CHECK:      %0 = constant 0.6931472 : f32
 // CHECK-NEXT: %s2 = tunable 's2' = -126.9565 : f32
-// CHECK-NEXT: %1 = constant 1.1920928955078125e-07 : f32
+// CHECK-NEXT: %1 = constant 1.1920929e-07 : f32
 // CHECK-NEXT: %one = constant 1 : f32
-// CHECK-NEXT: %s1 = tunable 's1' = 1064988311.552 : f32
-// CHECK-NEXT: %2 = constant 12102203.161561485 : f32
+// CHECK-NEXT: %s1 = tunable 's1' = 1064988300.0 : f32
+// CHECK-NEXT: %2 = constant 12102203.0 : f32
 // CHECK-NEXT: %x = var 'x' : f32
 // CHECK-NEXT: %3 = mul %2, %x : f32
 // CHECK-NEXT: %4 = add %s1, %3 : f32

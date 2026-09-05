@@ -19,9 +19,13 @@ from ffcc.opt.rewriter import RewriteArgs, Rewriter
 
 @dataclass
 class SimpArgs(RewriteArgs):
-    # When False, constant folding is not allowed to absorb tunables into
-    # (or drop) constant operands. This keeps the O(1) tunables at O(1)
-    # magnitude before tuning; the full fold is re-enabled after tuning.
+    """Simplification configuration.
+
+    fold_tunables, when False, disables constant folding of tunables so the
+    tunables keep a small magnitude before tuning; full folding is re-enabled
+    after tuning.
+    """
+
     fold_tunables: bool = True
 
 

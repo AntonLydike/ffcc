@@ -169,41 +169,29 @@ def tune(
     approximation: Expression,
     domain: tuple[float, float],
     samples: int = int(1e5),
-    record: list | None = None,
     lr: float = 1e-3,
-    step_size: int = 200,
-    gamma: float = 1.0,
-    best: bool = True,
+    record: list | None = None,
 ):
     """
-    Takes a base expression and an approximation with tunable variables, and changes the
-    tunables to a local minima found by doing gradient descent using pytorch.
-
-    gamma=1.0 disables the StepLR decay. With best=True (the default) the
-    reported (native-precision) loss is checked every epoch and the
-    parameters of the best epoch are kept, rather than the final ones --
-    the reported loss is quantized for sub-f32 targets, so the final
-    parameters can sit on a worse rounding pattern than an earlier epoch.
+    Tune the tunables of `approximation` to minimize the MSE against
+    `base_exp` over `domain` with Adam. The parameters of the lowest-loss
+    epoch (measured in native precision) are kept, since the reported loss
+    is quantized for sub-f32 targets and the final epoch can sit on a worse
+    rounding pattern than an earlier one.
     """
     width = base_exp.expr.result.type.width
     dtype = to_torch_type(base_exp.expr.result.type)
-    # For sub-f32 widths the native backward underflows: the analytic
-    # gradient through the bitcast (grad * 2^(e-B)/L) falls below the f16
-    # subnormal floor and zeros out, so Adam would see nothing. We therefore
-    # take gradients from an f32 surrogate of the same graph, and use the
-    # native-precision forward for the reported loss.
+    # For sub-f32 widths the native backward underflows (the analytic
+    # gradient through the bitcast falls below the subnormal floor and zeros
+    # out), so gradients are taken from an f32 surrogate of the same graph
+    # while the reported loss stays in native precision.
     surrogate = width if width < 32 else None
     if surrogate is not None:
         LOGGER.info(f"Tuning with f32 gradient surrogate for f{width}")
     grad_dtype = torch.float32 if surrogate is not None else dtype
 
     domain_t = torch.linspace(*domain, samples, dtype=dtype)
-
-    model = TunableIRModule(
-        approximation.variables,
-        approximation.expr,
-    )
-
+    model = TunableIRModule(approximation.variables, approximation.expr)
     criterion = nn.MSELoss()
     baseline = tensor(
         evaluate(
@@ -213,21 +201,17 @@ def tune(
     domain_g = domain_t.to(grad_dtype)
 
     optimizer = torch.optim.Adam(model.parameters(), lr=lr)
-    scheduler = torch.optim.lr_scheduler.StepLR(
-        optimizer, step_size=step_size, gamma=gamma
-    )
 
-    def reported_loss():
+    def native_loss() -> float:
         with torch.no_grad():
             out = model._eval((domain_t,), dtype)
-            return criterion(out.to(grad_dtype), baseline)
+            return float(criterion(out.to(grad_dtype), baseline))
 
     epochs = 600
     t0 = time.time()
-    loss = initial_loss = reported_loss()
-    if best:
-        best_loss = loss
-        best_params = [p.detach().clone() for p in model.parameters()]
+    initial_loss = native_loss()
+    best_loss = initial_loss
+    best_params = [p.detach().clone() for p in model.parameters()]
     if record is not None:
         record.append(initial_loss)
 
@@ -237,7 +221,7 @@ def tune(
                 epoch + 1,
                 epochs,
                 t0,
-                f"loss={loss:.8f}, lr={scheduler.get_last_lr()[0]:.1e}",
+                f"loss={loss:.8f}, lr={lr:.1e}",
                 color=Color.YELLOW,
                 file=sys.stderr,
             )
@@ -248,32 +232,25 @@ def tune(
         loss_g = criterion(out, baseline)
         loss_g.backward()
         optimizer.step()
-        scheduler.step()
-        if best or record is not None:
-            loss = reported_loss()
-            if best and loss < best_loss:
-                best_loss = loss
-                best_params = [p.detach().clone() for p in model.parameters()]
-            if record is not None:
-                record.append(loss)
-            if (epoch) % 10 == 9:
-                progress()
-        elif (epoch) % 10 == 9:
-            loss = reported_loss()
+        # native-precision loss; for f32 the gradient forward is the native
+        # forward, so reuse it rather than running a second forward
+        loss = loss_g.detach().item() if surrogate is None else native_loss()
+        if loss < best_loss:
+            best_loss = loss
+            best_params = [p.detach().clone() for p in model.parameters()]
+        if record is not None:
+            record.append(loss)
+        if epoch % 10 == 9:
             progress()
     if sys.stderr.isatty():
         print(file=sys.stderr)
-    if best:
-        with torch.no_grad():
-            for p, v in zip(model.parameters(), best_params):
-                p.copy_(v)
-        loss = best_loss
-    else:
-        loss = reported_loss()
-    # assign trained params back to tunable params:
+    # keep the parameters of the lowest-loss epoch
+    with torch.no_grad():
+        for p, v in zip(model.parameters(), best_params):
+            p.copy_(v)
     LOGGER.info(
         f"Tuned parameters {model.initial_params} -> {model.param_values()}, "
-        f"improving MSE from {initial_loss:.8f} to {loss:.8f}"
+        f"improving MSE from {initial_loss:.8f} to {best_loss:.8f}"
     )
     model.assign_back()
 

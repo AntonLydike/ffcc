@@ -12,7 +12,7 @@
 // CHECK:      %s1 = tunable 's1' = 2129976623 : i32
 // CHECK-NEXT: %one = constant 1 : f32
 // CHECK-NEXT: %s11 = tunable 's1' = 1064988312 : i32
-// CHECK-NEXT: %0 = constant -12102203.161561485 : f32
+// CHECK-NEXT: %0 = constant -12102203.0 : f32
 // CHECK-NEXT: %x = var 'x' : f32
 // CHECK-NEXT: %1 = mul %0, %x : f32
 // CHECK-NEXT: %2 = add %s11, %1 : i32

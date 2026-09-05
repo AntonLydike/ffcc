@@ -9,5 +9,5 @@
 %e = log2 %1 : f32
 %f = negate %d : f32
 
-// CHECK: %0 = constant -0.3535533905932738 : f32
+// CHECK: %0 = constant -0.35355338 : f32
 // CHECK-EMPTY:

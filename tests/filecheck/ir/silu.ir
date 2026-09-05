@@ -13,8 +13,8 @@
 
 // CHECK:      %x = var 'x' : f32
 // CHECK-NEXT: %one = constant 1 : f32
-// CHECK-NEXT: %s1 = tunable 's1' = 1064988311.552 : f32
-// CHECK-NEXT: %0 = constant -12102203.161561485 : f32
+// CHECK-NEXT: %s1 = tunable 's1' = 1064988300.0 : f32
+// CHECK-NEXT: %0 = constant -12102203.0 : f32
 // CHECK-NEXT: %1 = mul %0, %x : f32
 // CHECK-NEXT: %2 = add %s1, %1 : f32
 // CHECK-NEXT: %3 = bitcast i2f %2 to f32

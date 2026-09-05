@@ -2,7 +2,9 @@ import math
 import sys
 from itertools import count
 
+from ffcc.helper import format_float_width
 from ffcc.ir import (
+    FloatType,
     IRNode,
     Kind,
     Value,
@@ -81,10 +83,14 @@ def _print_ssa_node(n: IRNode, names: dict[Value, str], out: TextIOBase):
         case MathNode(kind=k, type=t):
             out.write(f"{res} = {k.name.lower()} {args} : {t}\n")
         case ConstantNode(value=v, type=t):
+            if isinstance(v, float) and isinstance(t, FloatType):
+                v = format_float_width(v, t.width)
             out.write(f"{res} = constant {v} : {t}\n")
         case VarNode(name=name, type=t):
             out.write(f"{res} = var {repr(name)} : {t}\n")
         case TunableNode(name=name, hint=h, type=t):
+            if isinstance(h, float) and isinstance(t, FloatType):
+                h = format_float_width(h, t.width)
             out.write(f"{res} = tunable {repr(name)} = {h} : {t}\n")
         case BitCastOperator(direction, type=t, args=(a,)):
             out.write(f"{res} = bitcast {direction} {args} to {t}\n")

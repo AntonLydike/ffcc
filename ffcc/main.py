@@ -103,14 +103,15 @@ def main():
         from ffcc.tune import tune
 
         tune(exp, rewritten_expr, args.tune)
-        # freeze the tuned parameters into plain constants and simplify,
-        # so the final output is a fully folded constant expression
+        # tune() wrote the trained values back into the tunables' hints, but
+        # the fold preserves tunables (their priority outranks constants'),
+        # so convert them to plain constants by hand; the full fold that
+        # follows then collapses the now-constant expression.
         for node in tuple(rewritten_expr.expr.walk()):
             if isinstance(node, TunableNode):
                 node.result.replace_with(
                     ConstantNode(node.hint, node.type).result
                 )
-        # re-enable full folding to collapse the frozen constants
         rewritten_ir = cse(simp_pass(rewritten_ir))
 
     formatter[args.output](

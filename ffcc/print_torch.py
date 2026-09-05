@@ -15,6 +15,7 @@ from ffcc.ir import (
     Value,
     VarNode,
 )
+from ffcc.helper import format_float_width
 from ffcc.parse import Expression
 
 KIND_TO_OP = {
@@ -91,7 +92,10 @@ def print_torch(
         res = elem.result
         match elem:
             case ConstantLikeNode(value):
-                expr_to_str[res] = str(value)
+                if isinstance(value, float) and isinstance(elem.type, FloatType):
+                    expr_to_str[res] = format_float_width(value, elem.type.width)
+                else:
+                    expr_to_str[res] = str(value)
             case MathNode(kind=k) if k in (Kind.Add, Kind.Sub, Kind.Div, Kind.Mul):
                 op = KIND_TO_OP[k]
                 if sum(map(len, args)) + 5 > line_width_limit:

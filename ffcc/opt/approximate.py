@@ -53,8 +53,6 @@ def has_var(node: IRNode) -> bool:
 def insert_approximations(node: IRNode, conf: Arguments) -> IRNode | None:
     match node:
         # replace log2(x) -> -B + s2 + s1 / L * I(x)
-        # s1 ~= 1, s2 ~= sigma; both are O(1) so the same learning rate
-        # works for every float width
         case MathNode(
             kind=Kind.Log,
             argops=(xop, ConstantNode(2)),
@@ -70,10 +68,8 @@ def insert_approximations(node: IRNode, conf: Arguments) -> IRNode | None:
             # return -B + s2 + s1/L * Ix
             return mB + s2 + s1 * Linv * BitCastOperator(x, "f2i")
         # replace b^x -> F((B - s1) * L + x * s2 * L * log_2(b))
-        # s1 ~= sigma, s2 ~= 1; both are O(1) so the same learning rate
-        # works for every float width. Derived from
-        # b^x -> F(L * (B - σ) + x * L * log_2(b)) by writing
-        # L*(B-σ) = (B-s1)*L and L = s2*L with L, B as fixed constants.
+        # s1 ~= sigma, s2 ~= 1; both are O(1), so one learning rate works
+        # for every float width
         case MathNode(
             kind=Kind.Pow,
             argops=(b, x),
@@ -92,8 +88,6 @@ def insert_approximations(node: IRNode, conf: Arguments) -> IRNode | None:
                 value=(B - s1) * L + (x * s2 * L * logb),
             )
         # replace a / x -> a * F(2L * (B - s1) - s2 * I(x))
-        # s1 ~= sigma, s2 ~= 1; both are O(1) so the same learning rate
-        # works for every float width
         case MathNode(kind=Kind.Div, argops=(a, x), result=r) if (
             has_var(x) and conf.div
         ):
