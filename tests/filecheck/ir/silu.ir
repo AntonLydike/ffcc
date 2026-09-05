@@ -13,17 +13,17 @@
 
 // CHECK:      %x = var 'x' : f32
 // CHECK-NEXT: %one = constant 1 : f32
-// CHECK-NEXT: %LB = tunable 'LB' = 1064988311.552 : f32
-// CHECK-NEXT: %L = tunable 'L' = -12102203.161561485 : f32
-// CHECK-NEXT: %0 = mul %L, %x : f32
-// CHECK-NEXT: %1 = add %LB, %0 : f32
-// CHECK-NEXT: %2 = bitcast i2f %1 to f32
-// CHECK-NEXT: %one_p_ex = add %one, %2 : f32
-// CHECK-NEXT: %3 = div %x, %one_p_ex : f32
+// CHECK-NEXT: %s1 = tunable 's1' = 1064988311.552 : f32
+// CHECK-NEXT: %0 = constant -12102203.161561485 : f32
+// CHECK-NEXT: %1 = mul %0, %x : f32
+// CHECK-NEXT: %2 = add %s1, %1 : f32
+// CHECK-NEXT: %3 = bitcast i2f %2 to f32
+// CHECK-NEXT: %one_p_ex = add %one, %3 : f32
+// CHECK-NEXT: %4 = div %x, %one_p_ex : f32
 
-// LLVM:      define float @my_func(float %x, float %L, float %LB) {
-// LLVM-NEXT:   %1 = fmul float %L, %x
-// LLVM-NEXT:   %2 = fadd float %LB, %1
+// LLVM:      define float @my_func(float %x, float %s1) {
+// LLVM-NEXT:   %1 = fmul float 0xC167154760000000, %x
+// LLVM-NEXT:   %2 = fadd float %s1, %1
 // LLVM-NEXT:   %cast = fptosi float %2 to i32
 // LLVM-NEXT:   %3 = bitcast i32 %cast to float
 // LLVM-NEXT:   %one_p_ex = fadd float 1.000000e+00, %3
@@ -31,16 +31,14 @@
 // LLVM-NEXT:   ret float %4
 // LLVM-NEXT: }
 
-// LLVM_VEC:      define <8 x float> @my_func(<8 x float> %x, float %L, float %LB) {
-// LLVM-VEC-NEXT:   %L_1 = insertelement <8 x float> poison, float %L, i64 0
-// LLVM-VEC-NEXT:   %L_2 = shufflevector <8 x float> %L_1, <8 x float> poison, <8 x i32> zeroinitializer
-// LLVM-VEC-NEXT:   %LB_1 = insertelement <8 x float> poison, float %LB, i64 0
-// LLVM-VEC-NEXT:   %LB_2 = shufflevector <8 x float> %LB_1, <8 x float> poison, <8 x i32> zeroinitializer
-// LLVM-VEC-NEXT:   %1 = fmul <8 x float> %L_2, %x
-// LLVM-VEC-NEXT:   %2 = fadd <8 x float> %LB_2, %1
+// LLVM_VEC:      define <8 x float> @my_func(<8 x float> %x, float %s1) {
+// LLVM-VEC-NEXT:   %s1_1 = insertelement <8 x float> poison, float %s1, i64 0
+// LLVM-VEC-NEXT:   %s1_2 = shufflevector <8 x float> %s1_1, <8 x float> poison, <8 x i32> zeroinitializer
+// LLVM-VEC-NEXT:   %1 = fmul <8 x float> <float 0xC167154760000000, float 0xC167154760000000, float 0xC167154760000000, float 0xC167154760000000, float 0xC167154760000000, float 0xC167154760000000, float 0xC167154760000000, float 0xC167154760000000>, %x
+// LLVM-VEC-NEXT:   %2 = fadd <8 x float> %s1_2, %1
 // LLVM-VEC-NEXT:   %cast = fptosi <8 x float> %2 to <8 x i32>
 // LLVM-VEC-NEXT:   %3 = bitcast <8 x i32> %cast to <8 x float>
-// LLVM-VEC-NEXT:   %one_p_ex = fadd <8 x float> splat (float 1.000000e+00), %3
+// LLVM-VEC-NEXT:   %one_p_ex = fadd <8 x float> <float 1.000000e+00, float 1.000000e+00, float 1.000000e+00, float 1.000000e+00, float 1.000000e+00, float 1.000000e+00, float 1.000000e+00, float 1.000000e+00>, %3
 // LLVM-VEC-NEXT:   %4 = fdiv <8 x float> %x, %one_p_ex
 // LLVM-VEC-NEXT:   ret <8 x float> %4
 // LLVM-VEC-NEXT: }

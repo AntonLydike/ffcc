@@ -13,11 +13,11 @@
 %bot = add %e2x, %1 : f32
 %res = div %top, %bot : f32
 
-// CHECK-NEXT: %LB = tunable 'LB' = 1064988311.552 : f32
-// CHECK-NEXT: %L = tunable 'L' = 24204406.32312297 : f32
+// CHECK-NEXT: %s1 = tunable 's1' = 1064988311.552 : f32
+// CHECK-NEXT: %s2 = tunable 's2' = 24204406.32312297 : f32
 // CHECK-NEXT: %x = var 'x' : f32
-// CHECK-NEXT: %0 = mul %L, %x : f32
-// CHECK-NEXT: %1 = add %LB, %0 : f32
+// CHECK-NEXT: %0 = mul %s2, %x : f32
+// CHECK-NEXT: %1 = add %s1, %0 : f32
 // CHECK-NEXT: %2 = bitcast i2f %1 to f32
 // CHECK-NEXT: %3 = constant 1 : f32
 // CHECK-NEXT: %top = sub %2, %3 : f32
@@ -27,9 +27,9 @@
 // LLVM-NEXT: ; ModuleID = '<stdin>'
 // LLVM-NEXT: source_filename = "<stdin>"
 // LLVM-EMPTY:
-// LLVM-NEXT: define float @my_func(float %x, float %L, float %LB) {
-// LLVM-NEXT:   %1 = fmul float %L, %x
-// LLVM-NEXT:   %2 = fadd float %LB, %1
+// LLVM-NEXT: define float @my_func(float %x, float %s1, float %s2) {
+// LLVM-NEXT:   %1 = fmul float %s2, %x
+// LLVM-NEXT:   %2 = fadd float %s1, %1
 // LLVM-NEXT:   %cast = fptosi float %2 to i32
 // LLVM-NEXT:   %3 = bitcast i32 %cast to float
 // LLVM-NEXT:   %top = fsub float %3, 1.000000e+00

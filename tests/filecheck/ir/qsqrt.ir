@@ -9,21 +9,21 @@
 %div = div %one, %pow : f32
 
 
-// CHECK:      %LB = tunable 'LB' = 1064988312 : i32
-// CHECK-NEXT: %L = tunable 'L' = -4194304.0 : f32
+// CHECK:      %s1 = tunable 's1' = 1064988312 : i32
+// CHECK-NEXT: %s2 = tunable 's2' = -4194304.0 : f32
 // CHECK-NEXT: %x = var 'x' : f32
 // CHECK-NEXT: %0 = constant 2 : f32
 // CHECK-NEXT: %1 = log %x, base=%0 : f32
-// CHECK-NEXT: %2 = mul %L, %1 : f32
-// CHECK-NEXT: %3 = add %LB, %2 : i32
+// CHECK-NEXT: %2 = mul %s2, %1 : f32
+// CHECK-NEXT: %3 = add %s1, %2 : i32
 // CHECK-NEXT: %4 = bitcast i2f %3 to f32
 
 
-// LLVM:      define float @my_func(float %x, float %L, i32 %LB) {
+// LLVM:      define float @my_func(float %x, i32 %s1, float %s2) {
 // LLVM-NEXT:   %1 = call float @llvm.log2.f32(float %x)
-// LLVM-NEXT:   %2 = fmul float %L, %1
+// LLVM-NEXT:   %2 = fmul float %s2, %1
 // LLVM-NEXT:   %cast = fptosi float %2 to i32
-// LLVM-NEXT:   %3 = add i32 %LB, %cast
+// LLVM-NEXT:   %3 = add i32 %s1, %cast
 // LLVM-NEXT:   %4 = bitcast i32 %3 to float
 // LLVM-NEXT:   ret float %4
 // LLVM-NEXT: }
