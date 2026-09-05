@@ -4,14 +4,18 @@
 %e = constant e : f32
 %res = pow %e, %x : f32
 
-// CHECK:      %LB = tunable 'LB' = 1064988311.552 : f32
-// CHECK-NEXT: %L = tunable 'L' = 8388608 : f32
-// CHECK-NEXT: %e = constant 2.718281828459045 : f32
-// CHECK-NEXT: %0 = constant 2 : f32
-// CHECK-NEXT: %1 = log %e, base=%0 : f32
-// CHECK-NEXT: %2 = mul %L, %1 : f32
+// CHECK:      %0 = constant 127 : f32
+// CHECK-NEXT: %s1 = tunable 's1' = 0.0435 : f32
+// CHECK-NEXT: %1 = sub %0, %s1 : f32
+// CHECK-NEXT: %2 = constant 8388608 : f32
+// CHECK-NEXT: %3 = mul %1, %2 : f32
 // CHECK-NEXT: %x = var 'x' : f32
-// CHECK-NEXT: %3 = mul %2, %x : f32
-// CHECK-NEXT: %4 = add %LB, %3 : f32
-// CHECK-NEXT: %5 = bitcast i2f %4 to f32
-
+// CHECK-NEXT: %s2 = tunable 's2' = 1.0 : f32
+// CHECK-NEXT: %4 = mul %x, %s2 : f32
+// CHECK-NEXT: %5 = mul %4, %2 : f32
+// CHECK-NEXT: %e = constant 2.718281828459045 : f32
+// CHECK-NEXT: %6 = constant 2 : f32
+// CHECK-NEXT: %7 = log %e, base=%6 : f32
+// CHECK-NEXT: %8 = mul %5, %7 : f32
+// CHECK-NEXT: %9 = add %3, %8 : f32
+// CHECK-NEXT: %10 = bitcast i2f %9 to f32

@@ -20,16 +20,24 @@ from torch import nn, Tensor
 
 class FastSilu(nn.Module):
         def forward(self, x: Tensor) -> Tensor:
-                v0 = (1064873152.0 + (-12104086.0 * x))
-                v1 = v0.type(torch.int32).view(torch.float32)
-                return (x / (1.0 + v1))
+                v0 = (-12104087.321284886 * x)
+                v1 = (1064872480.0625 + v0)
+                v2 = v1.type(torch.int32).view(torch.float32)
+                return (x / (1.0 + v2))
 ```
 
 Flags explained:
 - `-e $expr` provides the input expression to approximate
 - `-approx=exp` approximates exponentiation (`log` and `div` can be added as well, though `div` support is experimental)
+- `--type f16` targets half precision (default is `f32`); the bitcast trick works for any IEEE float width
 - `-tune=[-6,6]` performs gradient-descent based constant tuning on the domain $[-6,6]$
 - `-o torch` prints the resulting code as a pytorch module
+
+Tunable constants are re-parameterized as O(1) values, so the same learning
+rate works across float widths. For sub-f32 targets (e.g. f16), gradients
+are computed through an f32 surrogate of the bitcast graph: the f16 forward
+is exact, and the f32 surrogate's analytic backward avoids the underflow
+that zeroing f16 gradients (and thus breaking Adam) would cause.
 
 ## Development Environment:
 

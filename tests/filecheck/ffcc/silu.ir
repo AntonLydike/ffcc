@@ -31,6 +31,7 @@
 // TUNE-EMPTY:
 // TUNE-NEXT: class FastSilu(nn.Module):
 // TUNE-NEXT:     def forward(self, x: Tensor) -> Tensor:
-// TUNE-NEXT:         v0 = (1064873152.0 + (-12104086.0 * x))
-// TUNE-NEXT:         v1 = v0.type(torch.int32).view(torch.float32)
-// TUNE-NEXT:         return (x / (1.0 + v1))
+// TUNE-NEXT:         v0 = (-12104087.321284886 * x)
+// TUNE-NEXT:         v1 = (1064872480.0625 + v0)
+// TUNE-NEXT:         v2 = v1.type(torch.int32).view(torch.float32)
+// TUNE-NEXT:         return (x / (1.0 + v2))

@@ -4,7 +4,7 @@ from logging import getLogger
 import sys
 
 from ffcc.cse import cse
-from ffcc.ir import IRNode, VarNode
+from ffcc.ir import ConstantNode, IRNode, TunableNode, VarNode
 from ffcc.opt.simplify import simp
 from ffcc.opt_main import config_log, formatter, open_source, passes
 from ffcc.parse import Expression, _parse_type, parse_expr, parse_ssa
@@ -79,12 +79,18 @@ def main():
         vars = tuple(set(v for v in ir.walk() if isinstance(v, VarNode)))
         exp = Expression("my_func", vars, ir)
 
-    rewritten_ir = exp.expr.copy()
+    rewritten_ir: IRNode = exp.expr.copy()
+    # full fold (input has no tunables yet); no-fold keeps the O(1)
+    # tunables from being absorbed into constants before tuning
+    simp_pass = simp.with_args(simp.args_t())
+    simp_nofold = simp.with_args(simp.args_t(fold_tunables=False))
     if args.approximate:
         LOGGER.info(args.approximate)
         approx_pass = approximate.approx.with_args(args.approximate)
-        simp_pass = simp.with_args(simp.args_t())
-        rewritten_ir: IRNode = cse(simp_pass(approx_pass(cse(simp_pass(rewritten_ir)))))
+        # without tuning, fold the (hint-valued) tunables into constants as
+        # before; with tuning, keep the O(1) tunables intact
+        post_approx = simp_nofold if args.tune else simp_pass
+        rewritten_ir = cse(post_approx(approx_pass(cse(simp_pass(rewritten_ir)))))
 
     _vars = {var.name: var for var in rewritten_ir.walk() if isinstance(var, VarNode)}
     rewritten_expr = Expression(
@@ -97,6 +103,15 @@ def main():
         from ffcc.tune import tune
 
         tune(exp, rewritten_expr, args.tune)
+        # freeze the tuned parameters into plain constants and simplify,
+        # so the final output is a fully folded constant expression
+        for node in tuple(rewritten_expr.expr.walk()):
+            if isinstance(node, TunableNode):
+                node.result.replace_with(
+                    ConstantNode(node.hint, node.type).result
+                )
+        # re-enable full folding to collapse the frozen constants
+        rewritten_ir = cse(simp_pass(rewritten_ir))
 
     formatter[args.output](
         rewritten_ir,

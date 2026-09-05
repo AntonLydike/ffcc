@@ -1,4 +1,6 @@
 import math
+from dataclasses import dataclass
+from functools import wraps
 from typing import cast
 
 from ffcc.helper import prod
@@ -10,8 +12,29 @@ from ffcc.ir import (
     IRNode,
     Kind,
     MathNode,
+    TunableNode,
 )
-from ffcc.opt.rewriter import Rewriter
+from ffcc.opt.rewriter import RewriteArgs, Rewriter
+
+
+@dataclass
+class SimpArgs(RewriteArgs):
+    # When False, constant folding is not allowed to absorb tunables into
+    # (or drop) constant operands. This keeps the O(1) tunables at O(1)
+    # magnitude before tuning; the full fold is re-enabled after tuning.
+    fold_tunables: bool = True
+
+
+def _noargs(pattern):
+    """Adapt a (node) pattern to the (node, conf) signature."""
+    @wraps(pattern)
+    def inner(node, conf):
+        return pattern(node)
+    return inner
+
+
+def _has_tunable(*ops) -> bool:
+    return any(isinstance(o, TunableNode) for o in ops)
 
 
 def factors(n: IRNode) -> list[IRNode]:
@@ -100,7 +123,7 @@ def div_by_constant(node: IRNode) -> IRNode | None:
             return cst.with_new_value(1 / v) * a
 
 
-def neutral_elements(node: IRNode) -> IRNode | None:
+def neutral_elements(node: IRNode, conf: SimpArgs) -> IRNode | None:
     """
     Apply simplifications that arise from neutral elements, e.g.
 
@@ -109,7 +132,14 @@ def neutral_elements(node: IRNode) -> IRNode | None:
         0 * x -> 0
 
     etc.
+
+    Skipped when the neutral operand is a tunable (which would drop it,
+    e.g. s2=1.0 in `s2 * x`), unless `conf.fold_tunables` is set.
     """
+    if not conf.fold_tunables and any(
+        isinstance(op, TunableNode) for op in node.argops
+    ):
+        return None
     match node:
         # x^0 -> 1
         case MathNode(kind=Kind.Pow, argops=(x, ConstantLikeNode(value=0) as cst)):
@@ -276,10 +306,17 @@ def symmetry(node: IRNode) -> IRNode | None:
             return orig
 
 
-def constant_shoving(node: IRNode) -> IRNode | None:
+def constant_shoving(node: IRNode, conf: SimpArgs) -> IRNode | None:
     """
     rewrites that move constants around to make them foldable
+
+    Skipped when a tunable is a direct operand and folding is disabled:
+    without constant_fold to collapse the result, moving a tunable and a
+    constant past each other would ping-pong forever
+    (e.g. mul(s1, mul(L, p)) <-> mul(L, mul(s1, p))).
     """
+    if not conf.fold_tunables and _has_tunable(*node.argops):
+        return None
     match node:
         # switch math(a, const) -> math(const, a)
         case MathNode(kind=k, argops=(a, ConstantLikeNode() as c)) if k in (
@@ -332,14 +369,16 @@ def constant_shoving(node: IRNode) -> IRNode | None:
             return (-a) / b
 
 
-def constant_fold(node: IRNode) -> IRNode | None:
+def constant_fold(node: IRNode, conf: SimpArgs) -> IRNode | None:
     match node:
         # generic constant folding of all constant argument foldable op:
         case FoldableNode(
             argops=argops,
             evaluate=evaluate,
             type=res_t,
-        ) if all(isinstance(op, ConstantLikeNode) for op in argops):
+        ) if all(isinstance(op, ConstantLikeNode) for op in argops) and (
+            conf.fold_tunables or not _has_tunable(*argops)
+        ):
             argops = cast(list[ConstantLikeNode], argops)
             vals = [op.value for op in argops]
             result = evaluate(vals)
@@ -356,7 +395,9 @@ def constant_fold(node: IRNode) -> IRNode | None:
                 ),
                 type=res_t,
             ) as math_node
-        ) if k1 == k2 and k1 in (Kind.Add, Kind.Mul):
+        ) if k1 == k2 and k1 in (Kind.Add, Kind.Mul) and (
+            conf.fold_tunables or not _has_tunable(c1, c2)
+        ):
             return MathNode(
                 ConstantLikeNode.make(math_node.evaluate((v1, v2)), c1.type, (c1, c2)),
                 x,
@@ -381,7 +422,9 @@ def constant_fold(node: IRNode) -> IRNode | None:
                     ),
                 ),
             ),
-        ) if k in (Kind.Add, Kind.Mul, Kind.Div):
+        ) if k in (Kind.Add, Kind.Mul, Kind.Div) and (
+            conf.fold_tunables or not _has_tunable(c1, c2, c3)
+        ):
             rhs = MathNode(
                 ConstantLikeNode.make(v1 * v3, c3.type, (c1, c3)),
                 x,
@@ -402,6 +445,7 @@ def constant_fold(node: IRNode) -> IRNode | None:
             k1 == k2
             and k1 in (Kind.Mul, Kind.Add)
             and not isinstance(x, ConstantLikeNode)
+            and (conf.fold_tunables or not _has_tunable(c1, c2))
         ):
             return MathNode(
                 ConstantLikeNode.make(node.evaluate((c1.value, c2.value)), t, (c1, c2)),
@@ -413,15 +457,16 @@ def constant_fold(node: IRNode) -> IRNode | None:
 
 simp = Rewriter(
     (
-        simplify_div_exp,
+        _noargs(simplify_div_exp),
         constant_fold,
         neutral_elements,
-        log_identities,
-        change_of_basis,
-        div_by_constant,
-        symmetry,
-        arith,
-        cancel_div,
+        _noargs(log_identities),
+        _noargs(change_of_basis),
+        _noargs(div_by_constant),
+        _noargs(symmetry),
+        _noargs(arith),
+        _noargs(cancel_div),
         constant_shoving,
-    )
+    ),
+    SimpArgs,
 )

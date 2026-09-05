@@ -52,7 +52,9 @@ def has_var(node: IRNode) -> bool:
 
 def insert_approximations(node: IRNode, conf: Arguments) -> IRNode | None:
     match node:
-        # replace log2(x) -> I(x)/L - B + σ
+        # replace log2(x) -> -B + s2 + s1 / L * I(x)
+        # s1 ~= 1, s2 ~= sigma; both are O(1) so the same learning rate
+        # works for every float width
         case MathNode(
             kind=Kind.Log,
             argops=(xop, ConstantNode(2)),
@@ -61,16 +63,17 @@ def insert_approximations(node: IRNode, conf: Arguments) -> IRNode | None:
             x = xop.result
             x_type = x.type
             r_type = r.type
-            Linv = TunableNode("L", 2 ** -L_vals[r_type.width], x_type)
-            # fold sigma into -B here
-            mB = TunableNode("B", -B_vals[r_type.width] + SIGMA_HINT, x_type)
-            # mb = -B
-            # Linv = 1/L
-            # return -B + σ + 1/L * Ix
-            return mB + Linv * BitCastOperator(x, "f2i")
-        # replace b^x -> F(L * (B - σ) + x * L / log_b(2))
-        # log_b(2) -> log_2(2)/log_2(b) -> 1 / log_2(b)
-        # so final formula is: b^x -> F(L * (B - σ) + x * L * log_2(b))
+            s1 = TunableNode("s1", 1.0, x_type)
+            s2 = TunableNode("s2", SIGMA_HINT, x_type)
+            mB = ConstantNode(-B_vals[r_type.width], x_type)
+            Linv = ConstantNode(2 ** -L_vals[r_type.width], x_type)
+            # return -B + s2 + s1/L * Ix
+            return mB + s2 + s1 * Linv * BitCastOperator(x, "f2i")
+        # replace b^x -> F((B - s1) * L + x * s2 * L * log_2(b))
+        # s1 ~= sigma, s2 ~= 1; both are O(1) so the same learning rate
+        # works for every float width. Derived from
+        # b^x -> F(L * (B - σ) + x * L * log_2(b)) by writing
+        # L*(B-σ) = (B-s1)*L and L = s2*L with L, B as fixed constants.
         case MathNode(
             kind=Kind.Pow,
             argops=(b, x),
@@ -78,26 +81,31 @@ def insert_approximations(node: IRNode, conf: Arguments) -> IRNode | None:
         ) if (has_var(x) or has_var(b)) and conf.exp:
             x_type = x.type
             r_type = r.type
-            L = TunableNode("L", 2 ** L_vals[r_type.width], x_type)
-            LB = TunableNode(
-                "LB", L.value * (B_vals[r_type.width] - SIGMA_HINT), x_type
-            )
+            L = ConstantNode(2 ** L_vals[r_type.width], x_type)
+            B = ConstantNode(B_vals[r_type.width], x_type)
+            s1 = TunableNode("s1", SIGMA_HINT, x_type)
+            s2 = TunableNode("s2", 1.0, x_type)
             logb = MathNode(b, ConstantNode(2, x_type), kind=Kind.Log, res_type=x_type)
 
             return BitCastOperator(
                 direction="i2f",
-                value=LB + (L * logb * x),
+                value=(B - s1) * L + (x * s2 * L * logb),
             )
-        # replace a / x -> a * F(2L * (B - σ) - I(x))
+        # replace a / x -> a * F(2L * (B - s1) - s2 * I(x))
+        # s1 ~= sigma, s2 ~= 1; both are O(1) so the same learning rate
+        # works for every float width
         case MathNode(kind=Kind.Div, argops=(a, x), result=r) if (
             has_var(x) and conf.div
         ):
             x_type = x.type
             r_type = r.type
-            twoL = TunableNode("L", 2 * (2 ** (L_vals[r_type.width])), x_type)
-            B = TunableNode("B", B_vals[r_type.width] - SIGMA_HINT, x_type)
+            s1 = TunableNode("s1", SIGMA_HINT, x_type)
+            s2 = TunableNode("s2", 1.0, x_type)
+            twoL = ConstantNode(2 * (2 ** L_vals[r_type.width]), x_type)
+            B = ConstantNode(B_vals[r_type.width], x_type)
             return a * BitCastOperator(
-                direction="i2f", value=(twoL * B) - BitCastOperator(x, "f2i")
+                direction="i2f",
+                value=(twoL * (B - s1)) - s2 * BitCastOperator(x, "f2i"),
             )
 
 
