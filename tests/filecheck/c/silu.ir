@@ -1,0 +1,26 @@
+// RUN: ffcc-opt -p approx{exp},cse,simp %s -f c | filecheck %s
+// RUN: ffcc-opt -p approx{exp},cse,simp %s -f c | clang -x c - -fsyntax-only -Wall -Wextra -
+
+%x = var x : f32
+%one = constant 1 : f32
+%e = constant e : f32
+%mx = negate %x : f32
+%exp = pow %e, %mx : f32
+%one_p_ex = add %one, %exp : f32
+%d = div %one, %one_p_ex : f32
+%res = mul %x, %d : f32
+
+// CHECK:      #include <stdint.h>
+// CHECK:      static inline float ffcc_bc_int2float(int32_t x) {
+// CHECK-NEXT:     union { int32_t i; float f; } u;
+// CHECK-NEXT:     u.i = x;
+// CHECK-NEXT:     return u.f;
+// CHECK-NEXT: }
+// CHECK:      float fast_function(float x)
+// CHECK-NEXT: {
+// CHECK:      float v0 = (-12102203.161561485f * x);
+// CHECK:      float v1 = (1064988311.552f + v0);
+// CHECK:      float v2 = (1 + ffcc_bc_int2float(v1));
+// CHECK:      float v3 = (x / v2);
+// CHECK:      return v3;
+// CHECK:      }
