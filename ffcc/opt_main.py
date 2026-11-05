@@ -17,6 +17,7 @@ from ffcc.cse import cse
 from ffcc.parse import Expression, parse_expr, parse_ssa
 from ffcc.print_llvm import print_llvm_func_for
 from ffcc.print import print_dag, print_ssa
+from ffcc.print_c import print_c
 from ffcc.opt import types, simp, approx
 
 passes: dict[str, Rewriter | Callable[[IRNode], IRNode | None]] = {
@@ -56,6 +57,7 @@ def get_passes(pass_args: str) -> list[Callable[[str], IRNode | None]]:
 
 formatter = {
     "dag": print_dag,
+    "c": print_c,
     "ssa": print_ssa,
     "llvm": lambda node, buf, **kwargs: print_llvm_func_for(
         node,
